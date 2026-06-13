@@ -39,10 +39,10 @@ const notoJP = Noto_Sans_JP({
 })
 
 export const metadata: Metadata = {
-  title: "Chris Nikhil — Web3 & Fullstack Developer",
+  title: "Talos — Autonomous DeFi agents on Sui",
   description:
-    "Portfolio of Chris Nikhil, a Web3 and fullstack developer from Chennai. 2× ETHGlobal winner building smart contracts, DeFi systems, and visually bold web experiences.",
-  generator: "ChrisNikhil",
+    "Talos is a swarm of autonomous AI agents that manage real USDC on Sui mainnet, rotating across lending markets for the best yield — bounded by an on-chain Move policy object they physically cannot exceed. Sui Overflow 2026, Agentic Web.",
+  generator: "Talos",
 }
 
 export default function RootLayout({

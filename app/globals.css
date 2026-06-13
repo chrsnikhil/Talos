@@ -400,9 +400,9 @@ html { scroll-behavior: smooth; }
 :root {
   --t-paper: #FBF9F4;
   --t-ink: #101820;
-  --t-navy: #25408F;
-  --t-red: #D9251D;
-  --t-orange: #E07A1F;
+  --t-navy: #4F756F;  /* Daedalus — muted teal */
+  --t-red: #B5894F;   /* Icarus — dusty ochre */
+  --t-orange: #C98A3C;
   --t-silver: #C7CCD4;
 
   --t-font-display: var(--font-tourney), "Arial Black", system-ui, sans-serif;
