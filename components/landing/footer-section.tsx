@@ -43,6 +43,18 @@ export function FooterSection() {
       </div>
       
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">
+        {/* Signature crest */}
+        <div className="pt-16 lg:pt-24 flex items-end justify-between gap-6">
+          <span className="font-display text-stroke leading-[0.78] tracking-tight text-[clamp(3.5rem,15vw,11rem)] select-none">
+            TALOS
+          </span>
+          <span className="hidden md:block shrink-0 text-right font-mono text-[11px] uppercase tracking-widest text-muted-foreground leading-relaxed">
+            ΙΚΑΡΟΣ · executor
+            <br />
+            ΔΑΙΔΑΛΟΣ · critic
+          </span>
+        </div>
+
         {/* Main Footer */}
         <div className="py-16 lg:py-24">
           <div className="grid grid-cols-2 md:grid-cols-6 gap-12 lg:gap-8">
