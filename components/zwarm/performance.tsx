@@ -35,7 +35,7 @@ export function Performance() {
               </h2>
             </div>
             <a
-              href="#"
+              href="/dashboard"
               className="vl-btn inline-flex items-center gap-2 px-7 py-3.5 text-sm font-extrabold uppercase tracking-[0.14em] text-[#11181D]"
               style={{ background: "var(--t-red)" }}
             >

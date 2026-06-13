@@ -71,7 +71,7 @@ export function Hero() {
           <PlayCircle className="w-4 h-4" /> Watch demo
         </a>
         <a
-          href="#live"
+          href="/dashboard"
           className="inline-flex items-center gap-2 px-5 md:px-6 text-xs font-extrabold uppercase tracking-[0.16em] text-[#11181D] hover:brightness-105 transition-all"
           style={{ borderLeft: RULE, background: "var(--t-red)" }}
         >

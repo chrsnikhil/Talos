@@ -5,7 +5,7 @@ import { Github, PlayCircle, ArrowUpRight } from "lucide-react"
 const RULE = "3px solid var(--t-ink)"
 
 const LINKS = [
-  { label: "Dashboard", href: "#live", icon: ArrowUpRight },
+  { label: "Dashboard", href: "/dashboard", icon: ArrowUpRight },
   { label: "Demo video", href: "#", icon: PlayCircle },
   { label: "GitHub", href: "https://github.com/chrsnikhil", icon: Github },
 ]
