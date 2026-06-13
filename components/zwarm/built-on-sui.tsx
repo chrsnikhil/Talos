@@ -47,7 +47,7 @@ export function BuiltOnSui() {
               <div key={s.primitive} className="vl-row grid sm:grid-cols-[minmax(0,260px)_1fr]">
                 <div
                   className="vl-display text-base px-5 py-4 flex items-center"
-                  style={{ color: "var(--t-paper)", background: "var(--t-navy)" }}
+                  style={{ color: "var(--t-ink)", background: "var(--t-navy)" }}
                 >
                   {s.primitive}
                 </div>

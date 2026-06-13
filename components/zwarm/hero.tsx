@@ -101,10 +101,9 @@ export function Hero() {
           className="absolute inset-0 z-0 pointer-events-none"
           style={{
             background: [
-              "radial-gradient(130% 120% at 50% 42%, transparent 56%, rgba(16,24,32,0.07) 100%)",
-              "radial-gradient(56% 64% at 50% 56%, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0) 60%)",
-              "radial-gradient(36% 46% at 36% 60%, rgba(181,137,79,0.13) 0%, transparent 64%)",
-              "radial-gradient(36% 46% at 64% 60%, rgba(79,117,111,0.13) 0%, transparent 64%)",
+              "radial-gradient(60% 66% at 50% 56%, rgba(243,239,231,0.05) 0%, rgba(243,239,231,0) 60%)",
+              "radial-gradient(42% 52% at 34% 60%, rgba(181,137,79,0.22) 0%, transparent 64%)",
+              "radial-gradient(42% 52% at 66% 60%, rgba(79,117,111,0.24) 0%, transparent 64%)",
             ].join(", "),
           }}
         />

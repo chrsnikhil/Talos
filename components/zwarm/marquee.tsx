@@ -32,7 +32,7 @@ export function Marquee() {
   return (
     <div
       className="overflow-hidden"
-      style={{ borderBottom: RULE, background: "var(--t-navy)", color: "var(--t-paper)" }}
+      style={{ borderBottom: RULE, background: "var(--t-navy)", color: "var(--t-ink)" }}
     >
       <div className="flex animate-marquee">
         {group}
