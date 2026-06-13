@@ -14,6 +14,7 @@ function req(key: string): string {
 export const RPC = process.env.SUI_RPC || "https://fullnode.testnet.sui.io:443"
 export const PACKAGE_ID = req("TALOS_PACKAGE_ID")
 export const POLICY_ID = req("TALOS_POLICY_ID")
+export const REPUTATION_ID = process.env.TALOS_REPUTATION_ID || "" // required by Daedalus
 export const WALRUS_PUBLISHER = process.env.WALRUS_PUBLISHER || "https://publisher.walrus-testnet.walrus.space"
 
 export const client = new SuiClient({ url: RPC })

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ArrowUpRight, ArrowLeft, Activity, ShieldCheck, Ban } from "lucide-react"
+import { ArrowUpRight, ArrowLeft, Activity, ShieldCheck, Ban, Gavel } from "lucide-react"
 
 const RULE = "3px solid var(--t-ink)"
 const EXPLORER = "https://suiscan.xyz/testnet"
@@ -39,6 +39,8 @@ const EV: Record<string, { label: string; accent: string }> = {
   PolicyCreated: { label: "Created", accent: "var(--t-navy)" },
   ToppedUp: { label: "Top-up", accent: "var(--t-navy)" },
   ExpiryExtended: { label: "Extended", accent: "var(--t-navy)" },
+  CriticRating: { label: "Rating", accent: "var(--t-navy)" },
+  ReputationCreated: { label: "Critic init", accent: "var(--t-navy)" },
 }
 
 function evDetail(e: Ev): string {
@@ -54,6 +56,10 @@ function evDetail(e: Ev): string {
       return `+${d.added} · remaining ${d.remaining}`
     case "ExpiryExtended":
       return `new expiry ${d.new_expires_at_ms}`
+    case "CriticRating":
+      return `${d.score}/100 · ${d.verdict} · re ${String(d.ref_tx ?? "").slice(0, 8)}…`
+    case "ReputationCreated":
+      return "reputation ledger created"
     default:
       return ""
   }
@@ -75,19 +81,22 @@ function Cell({ label, value, accent }: { label: string; value: React.ReactNode;
 export default function Dashboard() {
   const [policy, setPolicy] = useState<Policy | null>(null)
   const [events, setEvents] = useState<Ev[]>([])
+  const [rep, setRep] = useState<{ total: number; avg: number } | null>(null)
   const [updated, setUpdated] = useState<Date | null>(null)
 
   useEffect(() => {
     let alive = true
     async function tick() {
       try {
-        const [p, a] = await Promise.all([
+        const [p, a, rp] = await Promise.all([
           fetch("/api/talos/policy", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/activity", { cache: "no-store" }).then((r) => r.json()),
+          fetch("/api/talos/reputation", { cache: "no-store" }).then((r) => r.json()),
         ])
         if (!alive) return
         if (!p.error) setPolicy(p)
         setEvents(a.events || [])
+        if (!rp.error) setRep(rp)
         setUpdated(new Date())
       } catch {
         /* keep last good state */
@@ -163,9 +172,11 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-[minmax(0,360px)_1fr] gap-8">
+        <div className="grid lg:grid-cols-[minmax(0,360px)_1fr] gap-8 items-start">
+          {/* left column: policy + critic reputation */}
+          <div className="space-y-8">
           {/* policy panel */}
-          <div className="vl-doc bg-[var(--t-bg-card)] overflow-hidden h-fit">
+          <div className="vl-doc bg-[var(--t-bg-card)] overflow-hidden">
             <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: RULE, background: "var(--t-navy)" }}>
               {status === "REVOKED" ? <Ban className="w-4 h-4 text-white" /> : <ShieldCheck className="w-4 h-4 text-white" />}
               <span className="vl-display text-lg text-white">Policy</span>
@@ -195,6 +206,25 @@ export default function Dashboard() {
               style={{ borderTop: RULE }}>
               View policy on explorer <ArrowUpRight className="w-3.5 h-3.5" />
             </a>
+          </div>
+
+          {/* critic reputation */}
+          <div className="vl-doc bg-[var(--t-bg-card)] overflow-hidden">
+            <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: RULE, background: "var(--t-navy)" }}>
+              <Gavel className="w-4 h-4 text-white" />
+              <span className="vl-display text-lg text-white">Daedalus — reputation</span>
+            </div>
+            <div className="flex items-center justify-around py-7">
+              <div className="text-center">
+                <div className="vl-display text-[clamp(30px,5vw,52px)] leading-none" style={{ color: "var(--t-navy)" }}>{rep ? rep.avg : "—"}</div>
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] mt-2" style={{ color: "var(--t-text-muted)" }}>avg score /100</div>
+              </div>
+              <div className="text-center">
+                <div className="vl-display text-[clamp(30px,5vw,52px)] leading-none">{rep ? rep.total : "—"}</div>
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] mt-2" style={{ color: "var(--t-text-muted)" }}>ratings</div>
+              </div>
+            </div>
+          </div>
           </div>
 
           {/* activity feed */}

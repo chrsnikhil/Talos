@@ -3,8 +3,10 @@
 export const NETWORK = process.env.SUI_NETWORK || "testnet"
 export const RPC = process.env.SUI_RPC || "https://fullnode.testnet.sui.io:443"
 export const PACKAGE_ID =
-  process.env.TALOS_PACKAGE_ID || "0x879f93fde0c8797aa4e6d2d07263d796a0a568953503bd3c695001493a554eca"
+  process.env.TALOS_PACKAGE_ID || "0x8a01a3e3dfcafd078bef29bbbc8af6d21da120ee449febd98314311cc0444b31"
 export const POLICY_ID =
-  process.env.TALOS_POLICY_ID || "0x3451ee0d266b222d3dd5254386e8909eb663bb6fe1b067174cbaad0709725039"
+  process.env.TALOS_POLICY_ID || "0xed40900a9e9c3fa65b350f99ea73469ecf7f0e42d806c6cc69cc0cf3bfa6993a"
+export const REPUTATION_ID =
+  process.env.TALOS_REPUTATION_ID || "0xb8912d9e70ca432ec23ee7a69e40e254f767695b0740bd4133f17003f1a13806"
 
 export const EXPLORER = `https://suiscan.xyz/${NETWORK}`
