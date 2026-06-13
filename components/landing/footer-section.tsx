@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { AnimatedWave } from "./animated-wave";
+import { TalosOrbit } from "./talos-orbit";
 
 const footerLinks = {
   Protocol: [
@@ -39,7 +39,7 @@ export function FooterSection() {
     <footer className="relative border-t border-foreground/10">
       {/* Animated wave background */}
       <div className="absolute inset-0 h-64 opacity-20 pointer-events-none overflow-hidden">
-        <AnimatedWave />
+        <TalosOrbit className="w-full h-full text-foreground" />
       </div>
       
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">

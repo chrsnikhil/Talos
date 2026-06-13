@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { AnimatedTetrahedron } from "./animated-tetrahedron";
+import { TalosOrbit } from "./talos-orbit";
 
 export function CtaSection() {
   const [isVisible, setIsVisible] = useState(false);
@@ -90,7 +90,7 @@ export function CtaSection() {
 
               {/* Right animation */}
               <div className="hidden lg:flex items-center justify-center w-[500px] h-[500px] -mr-16">
-                <AnimatedTetrahedron />
+                <TalosOrbit className="w-full h-full text-foreground" />
               </div>
             </div>
           </div>

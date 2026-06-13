@@ -150,14 +150,14 @@
   .animate-char-in {
     animation: char-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     opacity: 0;
-    filter: blur(40px);
+    filter: blur(8px);
     transform: translateY(100%);
   }
   
   @keyframes char-in {
     0% {
       opacity: 0;
-      filter: blur(40px);
+      filter: blur(8px);
       transform: translateY(100%);
     }
     100% {
