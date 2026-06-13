@@ -1,14 +1,11 @@
-"use client"
-
-import { Hero } from "@/components/zwarm/hero"
-import { Marquee } from "@/components/zwarm/marquee"
-import { HowItWorks } from "@/components/zwarm/how-it-works"
-import { Agents } from "@/components/zwarm/agents"
-import { Safety } from "@/components/zwarm/safety"
-import { Performance } from "@/components/zwarm/performance"
-import { BuiltOnSui } from "@/components/zwarm/built-on-sui"
-import { Roadmap } from "@/components/zwarm/roadmap"
-import { Footer } from "@/components/zwarm/footer"
+import { Hero } from "@/components/talos/hero"
+import { Marquee } from "@/components/talos/marquee"
+import { HowItWorks } from "@/components/talos/how-it-works"
+import { Agents } from "@/components/talos/agents"
+import { Stack } from "@/components/talos/stack"
+import { Live } from "@/components/talos/live"
+import { Roadmap } from "@/components/talos/roadmap"
+import { Footer } from "@/components/talos/footer"
 
 export default function Home() {
   return (
@@ -17,9 +14,8 @@ export default function Home() {
       <Marquee />
       <HowItWorks />
       <Agents />
-      <Safety />
-      <Performance />
-      <BuiltOnSui />
+      <Stack />
+      <Live />
       <Roadmap />
       <Footer />
     </main>
