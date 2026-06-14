@@ -1,58 +1,24 @@
 import type React from "react"
 import type { Metadata } from "next"
-
+import { Inter, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 
-import { Onest, Tourney, Graduate, Noto_Sans_JP, Geist_Mono as V0_Font_Geist_Mono } from "next/font/google"
-
-// Initialize fonts
-const _geistMono = V0_Font_Geist_Mono({
-  subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-})
-
-const onest = Onest({
-  subsets: ["latin"],
-  weight: ["500", "700"],
-  variable: "--font-onest",
-})
-
-// Display logotype — chamfered tech-sport italic (free stand-in for Good Times,
-// the genre of the AKAI-style lettering)
-const tourney = Tourney({
-  subsets: ["latin"],
-  style: ["italic"],
-  variable: "--font-tourney",
-})
-
-// Collegiate varsity block — the jersey-lettering font
-const graduate = Graduate({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-graduate",
-})
-
-const notoJP = Noto_Sans_JP({
-  weight: ["700", "900"],
-  variable: "--font-noto-jp",
-  preload: false,
-})
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" })
 
 export const metadata: Metadata = {
   title: "Talos — Autonomous DeFi agents on Sui",
   description:
-    "Talos is a swarm of autonomous AI agents that manage real USDC on Sui mainnet, rotating across lending markets for the best yield — bounded by an on-chain Move policy object they physically cannot exceed. Sui Overflow 2026, Agentic Web.",
+    "Talos is a swarm of autonomous AI agents that manage real USDC on Sui, bounded by an on-chain Move policy they physically cannot exceed. Sui Overflow 2026, Agentic Web.",
   generator: "Talos",
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className={`${onest.variable} ${tourney.variable} ${graduate.variable} ${notoJP.variable} font-sans antialiased overflow-x-hidden`}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased overflow-x-hidden`}>
+        {children}
+      </body>
     </html>
   )
 }

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { ArrowUpRight, ArrowLeft, Activity, ShieldCheck, Ban, Gavel } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
-const RULE = "3px solid var(--t-ink)"
 const EXPLORER = "https://suiscan.xyz/testnet"
 
 type Policy = {
@@ -19,11 +20,9 @@ type Policy = {
   protocols: string[]
   error?: string
 }
-
 type Ev = { type: string; tx: string; timestampMs: number; data: Record<string, any> }
 
 const trunc = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "—")
-
 function ago(ms: number) {
   if (!ms) return ""
   const s = Math.max(0, Math.floor((Date.now() - ms) / 1000))
@@ -32,17 +31,15 @@ function ago(ms: number) {
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`
   return `${Math.floor(s / 86400)}d ago`
 }
-
-const EV: Record<string, { label: string; accent: string }> = {
-  SpendAuthorized: { label: "Rebalance", accent: "var(--t-red)" },
-  PolicyRevoked: { label: "Revoked", accent: "var(--t-red)" },
-  PolicyCreated: { label: "Created", accent: "var(--t-navy)" },
-  ToppedUp: { label: "Top-up", accent: "var(--t-navy)" },
-  ExpiryExtended: { label: "Extended", accent: "var(--t-navy)" },
-  CriticRating: { label: "Rating", accent: "var(--t-navy)" },
-  ReputationCreated: { label: "Critic init", accent: "var(--t-navy)" },
+const LABEL: Record<string, string> = {
+  SpendAuthorized: "Rebalance",
+  PolicyRevoked: "Revoked",
+  PolicyCreated: "Created",
+  ToppedUp: "Top-up",
+  ExpiryExtended: "Extended",
+  CriticRating: "Rating",
+  ReputationCreated: "Critic init",
 }
-
 function evDetail(e: Ev): string {
   const d = e.data || {}
   switch (e.type) {
@@ -65,15 +62,11 @@ function evDetail(e: Ev): string {
   }
 }
 
-function Cell({ label, value, accent }: { label: string; value: React.ReactNode; accent?: string }) {
+function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center py-7 px-4 text-center">
-      <span className="vl-display text-[clamp(26px,4vw,46px)] leading-none" style={{ color: accent ?? "var(--t-ink)" }}>
-        {value}
-      </span>
-      <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] mt-2.5" style={{ color: "var(--t-text-muted)" }}>
-        {label}
-      </span>
+    <div className="bg-card px-5 py-6 text-center">
+      <div className="text-2xl font-semibold tracking-tight sm:text-3xl">{value}</div>
+      <div className="mt-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
     </div>
   )
 }
@@ -112,147 +105,129 @@ export default function Dashboard() {
 
   const expired = policy ? Date.now() >= policy.expires_at_ms : false
   const status = !policy ? "…" : policy.revoked ? "REVOKED" : expired ? "EXPIRED" : "ACTIVE"
-  const statusColor = status === "ACTIVE" ? "var(--t-orange)" : "var(--t-red)"
   const budgetTotal = policy ? policy.remaining_budget + policy.total_spent : 0
   const pct = policy && budgetTotal > 0 ? Math.round((policy.remaining_budget / budgetTotal) * 100) : 100
 
   return (
-    <main className="min-h-screen" style={{ background: "var(--t-paper)", color: "var(--t-ink)" }}>
-      {/* top rail */}
-      <div className="flex items-stretch" style={{ borderBottom: RULE }}>
-        <a href="/" className="flex items-center gap-2 px-5 md:px-8 py-3.5 hover:bg-[var(--t-navy)] hover:text-white transition-colors" style={{ borderRight: RULE }}>
-          <ArrowLeft className="w-4 h-4" />
-          <span className="vl-display text-lg">TALOS</span>
-        </a>
-        <div className="flex items-center px-5 text-xs font-extrabold uppercase tracking-[0.18em]" style={{ borderRight: RULE }}>
-          Operator
-        </div>
-        <div className="flex-1" />
-        <div className="flex items-center gap-2.5 px-5 text-xs font-extrabold uppercase tracking-[0.18em]" style={{ borderLeft: RULE }}>
-          <span className="relative flex h-2.5 w-2.5">
-            {status === "ACTIVE" && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: statusColor }} />
-            )}
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: statusColor }} />
-          </span>
-          {status}
+    <main className="min-h-screen bg-background text-foreground">
+      <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 lg:px-8">
+          <a href="/" className="group flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground font-mono text-xs font-bold">Τ</span>
+            <span className="font-semibold">Talos</span>
+            <span className="font-mono text-xs text-muted-foreground">operator</span>
+          </a>
+          <Badge variant={status === "ACTIVE" ? "default" : "destructive"} className="font-mono">
+            <span className="mr-1.5 inline-flex h-1.5 w-1.5 rounded-full bg-current" />
+            {status}
+          </Badge>
         </div>
       </div>
 
-      <div className="px-5 md:px-10 py-10 md:py-14 max-w-[1400px] mx-auto">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div className="mx-auto max-w-6xl px-5 py-12 lg:px-8 lg:py-16">
+        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="vl-display text-[clamp(36px,6vw,72px)] leading-[0.85]" style={{ color: "var(--t-navy)" }}>
-              Icarus — live
-            </h1>
-            <p className="mt-3 text-sm font-medium" style={{ color: "var(--t-text-muted)", fontFamily: "var(--font-mono)" }}>
-              policy {trunc(policy?.policyId)} · agent {trunc(policy?.agent)} · testnet
+            <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Live · Sui testnet</span>
+            <h1 className="mt-2 text-4xl font-semibold tracking-tight lg:text-5xl">Icarus, live</h1>
+            <p className="mt-2 font-mono text-xs text-muted-foreground">
+              policy {trunc(policy?.policyId)} · agent {trunc(policy?.agent)}
             </p>
           </div>
-          <span className="text-[11px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "var(--t-text-muted)" }}>
+          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
             {updated ? `updated ${updated.toLocaleTimeString()}` : "connecting…"} · auto 5s
           </span>
         </div>
 
-        {/* budget meter */}
-        <div className="vl-card bg-[var(--t-bg-card)] overflow-hidden mb-8">
-          <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: RULE, background: "var(--t-navy)" }}>
-            <span className="vl-display text-lg text-white">Budget leash</span>
-            <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/80">{pct}% remaining</span>
+        {/* budget */}
+        <div className="mb-8 overflow-hidden rounded-xl border border-border">
+          <div className="flex items-center justify-between border-b border-border px-5 py-3">
+            <span className="font-semibold">Budget leash</span>
+            <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{pct}% remaining</span>
           </div>
           <div className="px-5 pt-5">
-            <div className="h-5 w-full relative overflow-hidden" style={{ border: "3px solid var(--t-ink)" }}>
-              <div className="absolute inset-y-0 left-0" style={{ width: `${pct}%`, background: "var(--t-red)" }} />
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${pct}%` }} />
             </div>
           </div>
-          <div className="grid grid-cols-3" style={{ borderTop: "none" }}>
-            <Cell label="Remaining" value={policy?.remaining_budget ?? "—"} accent="var(--t-red)" />
-            <Cell label="Per-tx cap" value={policy?.per_tx_cap ?? "—"} />
-            <Cell label="Total spent" value={policy?.total_spent ?? "—"} accent="var(--t-navy)" />
+          <div className="mt-2 grid grid-cols-3 gap-px bg-border">
+            <Stat label="Remaining" value={policy?.remaining_budget ?? "—"} />
+            <Stat label="Per-tx cap" value={policy?.per_tx_cap ?? "—"} />
+            <Stat label="Total spent" value={policy?.total_spent ?? "—"} />
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-[minmax(0,360px)_1fr] gap-8 items-start">
-          {/* left column: policy + critic reputation */}
+        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,360px)_1fr]">
           <div className="space-y-8">
-          {/* policy panel */}
-          <div className="vl-doc bg-[var(--t-bg-card)] overflow-hidden">
-            <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: RULE, background: "var(--t-navy)" }}>
-              {status === "REVOKED" ? <Ban className="w-4 h-4 text-white" /> : <ShieldCheck className="w-4 h-4 text-white" />}
-              <span className="vl-display text-lg text-white">Policy</span>
-            </div>
-            {[
-              { k: "Status", v: status },
-              { k: "Owner", v: trunc(policy?.owner) },
-              { k: "Agent", v: trunc(policy?.agent) },
-              { k: "Expires", v: policy ? new Date(policy.expires_at_ms).toLocaleDateString() : "—" },
-            ].map((row) => (
-              <div key={row.k} className="vl-row flex items-center justify-between px-5 py-3.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "var(--t-text-muted)" }}>{row.k}</span>
-                <span className="text-sm font-bold" style={{ fontFamily: "var(--font-mono)" }}>{row.v}</span>
+            <div className="overflow-hidden rounded-xl border border-border">
+              <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+                {status === "REVOKED" ? <Ban className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4 text-primary" />}
+                <span className="font-semibold">Policy</span>
               </div>
-            ))}
-            <div className="px-5 py-4" style={{ borderTop: RULE }}>
-              <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] mb-2.5" style={{ color: "var(--t-text-muted)" }}>Allowed protocols</div>
-              <div className="flex flex-wrap gap-2">
-                {(policy?.protocols ?? []).map((p) => (
-                  <span key={p} className="vl-chip" style={{ fontFamily: "var(--font-mono)" }}>{p}</span>
-                ))}
-                {(!policy || policy.protocols.length === 0) && <span className="text-sm" style={{ color: "var(--t-text-muted)" }}>—</span>}
+              {[
+                { k: "Status", v: status },
+                { k: "Owner", v: trunc(policy?.owner) },
+                { k: "Agent", v: trunc(policy?.agent) },
+                { k: "Expires", v: policy ? new Date(policy.expires_at_ms).toLocaleDateString() : "—" },
+              ].map((row) => (
+                <div key={row.k} className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{row.k}</span>
+                  <span className="font-mono text-sm">{row.v}</span>
+                </div>
+              ))}
+              <div className="px-5 py-4">
+                <div className="mb-2.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Allowed protocols</div>
+                <div className="flex flex-wrap gap-2">
+                  {(policy?.protocols ?? []).map((p) => (
+                    <Badge key={p} variant="secondary" className="font-mono">{p}</Badge>
+                  ))}
+                  {(!policy || policy.protocols.length === 0) && <span className="text-sm text-muted-foreground">—</span>}
+                </div>
+              </div>
+              <a href={`${EXPLORER}/object/${policy?.policyId ?? ""}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 border-t border-border px-5 py-3.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                View policy on explorer <ArrowUpRight className="h-3.5 w-3.5" />
+              </a>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-border">
+              <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+                <Gavel className="h-4 w-4 text-primary" />
+                <span className="font-semibold">Daedalus — reputation</span>
+              </div>
+              <div className="flex items-center justify-around py-8">
+                <div className="text-center">
+                  <div className="text-4xl font-semibold tracking-tight">{rep ? rep.avg : "—"}</div>
+                  <div className="mt-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">avg /100</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-4xl font-semibold tracking-tight">{rep ? rep.total : "—"}</div>
+                  <div className="mt-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">ratings</div>
+                </div>
               </div>
             </div>
-            <a href={`${EXPLORER}/object/${policy?.policyId ?? ""}`} target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 px-5 py-3.5 text-[11px] font-extrabold uppercase tracking-[0.16em] hover:bg-[var(--t-navy)] hover:text-white transition-colors"
-              style={{ borderTop: RULE }}>
-              View policy on explorer <ArrowUpRight className="w-3.5 h-3.5" />
-            </a>
           </div>
 
-          {/* critic reputation */}
-          <div className="vl-doc bg-[var(--t-bg-card)] overflow-hidden">
-            <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: RULE, background: "var(--t-navy)" }}>
-              <Gavel className="w-4 h-4 text-white" />
-              <span className="vl-display text-lg text-white">Daedalus — reputation</span>
-            </div>
-            <div className="flex items-center justify-around py-7">
-              <div className="text-center">
-                <div className="vl-display text-[clamp(30px,5vw,52px)] leading-none" style={{ color: "var(--t-navy)" }}>{rep ? rep.avg : "—"}</div>
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] mt-2" style={{ color: "var(--t-text-muted)" }}>avg score /100</div>
-              </div>
-              <div className="text-center">
-                <div className="vl-display text-[clamp(30px,5vw,52px)] leading-none">{rep ? rep.total : "—"}</div>
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] mt-2" style={{ color: "var(--t-text-muted)" }}>ratings</div>
-              </div>
-            </div>
-          </div>
-          </div>
-
-          {/* activity feed */}
-          <div className="vl-doc bg-[var(--t-bg-card)] overflow-hidden">
-            <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: RULE, background: "var(--t-navy)" }}>
-              <Activity className="w-4 h-4 text-white" />
-              <span className="vl-display text-lg text-white">On-chain activity</span>
+          <div className="overflow-hidden rounded-xl border border-border">
+            <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+              <Activity className="h-4 w-4" />
+              <span className="font-semibold">On-chain activity</span>
             </div>
             {events.length === 0 && (
-              <div className="px-5 py-10 text-center text-sm" style={{ color: "var(--t-text-muted)" }}>
+              <div className="px-5 py-12 text-center text-sm text-muted-foreground">
                 No events yet — run the Icarus runtime to see live rebalances.
               </div>
             )}
-            {events.map((e, i) => {
-              const meta = EV[e.type] ?? { label: e.type, accent: "var(--t-ink)" }
-              return (
-                <div key={e.tx + i} className="vl-row flex items-center gap-4 px-5 py-3.5">
-                  <span className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white shrink-0" style={{ background: meta.accent, border: "2px solid var(--t-ink)" }}>
-                    {meta.label}
-                  </span>
-                  <span className="flex-1 text-sm font-medium" style={{ fontFamily: "var(--font-mono)" }}>{evDetail(e)}</span>
-                  <span className="text-[11px] hidden sm:inline" style={{ color: "var(--t-text-muted)" }}>{ago(e.timestampMs)}</span>
-                  <a href={`${EXPLORER}/tx/${e.tx}`} target="_blank" rel="noopener noreferrer" className="hover:opacity-60" title="View tx">
-                    <ArrowUpRight className="w-4 h-4" />
-                  </a>
-                </div>
-              )
-            })}
+            {events.map((e, i) => (
+              <div key={e.tx + i} className="flex items-center gap-4 border-b border-border/60 px-5 py-3.5">
+                <Badge variant="outline" className="shrink-0 font-mono text-[10px] uppercase">{LABEL[e.type] ?? e.type}</Badge>
+                <span className="flex-1 font-mono text-sm text-foreground/80">{evDetail(e)}</span>
+                <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{ago(e.timestampMs)}</span>
+                <a href={`${EXPLORER}/tx/${e.tx}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-foreground" title="View tx">
+                  <ArrowUpRight className="h-4 w-4" />
+                </a>
+              </div>
+            ))}
           </div>
         </div>
       </div>
