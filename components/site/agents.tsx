@@ -41,7 +41,7 @@ const agents = [
 
 export function Agents() {
   return (
-    <section id="agents" className="w-full border-b-2 border-foreground px-6 py-20 lg:px-12">
+    <section id="agents" className="w-full border-b border-border/25 px-6 py-20 lg:px-12">
       {/* label row */}
       <div className="mb-10 flex items-center gap-4">
         <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">// SECTION: SWARM</span>
@@ -59,7 +59,7 @@ export function Agents() {
         TWO AGENTS <span className="text-accent">//</span> ZERO TRUST
       </motion.h2>
 
-      <div className="grid border-2 border-foreground md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {agents.map((a, i) => (
           <motion.div
             key={a.name}
@@ -67,10 +67,10 @@ export function Agents() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
             transition={{ duration: 0.6, delay: i * 0.1, ease }}
-            className={`flex flex-col ${i === 0 ? "border-b-2 border-foreground md:border-b-0 md:border-r-2" : ""}`}
+            className="glass-card flex flex-col overflow-hidden"
           >
             {/* image panel */}
-            <div className="dot-grid-bg relative h-64 border-b-2 border-foreground">
+            <div className="dot-grid-bg relative h-64 border-b border-border/40">
               <Image src={a.img} alt={a.alt} fill className="object-contain p-5" />
               <span className="absolute left-3 top-3 flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
                 <span className="h-1.5 w-1.5 bg-accent" /> ONLINE
@@ -82,7 +82,7 @@ export function Agents() {
               <div className="mb-4 flex items-center gap-3">
                 <span className="font-pixel text-3xl text-accent">{a.glyph}</span>
                 <span className="font-pixel text-2xl tracking-tight">{a.name}</span>
-                <span className="ml-auto border-2 border-foreground px-2.5 py-1 text-[10px] uppercase tracking-widest">
+                <span className="glass-chip ml-auto px-2.5 py-1 text-[10px] uppercase tracking-widest">
                   {a.role}
                 </span>
               </div>
@@ -105,7 +105,7 @@ export function Agents() {
                 {a.primitives.map((p) => (
                   <span
                     key={p}
-                    className="border-2 border-foreground px-2.5 py-1 text-[10px] uppercase tracking-wider text-muted-foreground"
+                    className="glass-chip px-2.5 py-1 text-[10px] uppercase tracking-wider text-muted-foreground"
                   >
                     {p}
                   </span>

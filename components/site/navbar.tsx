@@ -23,12 +23,12 @@ export function Navbar() {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 border-b-2 border-foreground transition-colors ${
-        scrolled ? "bg-background" : "bg-background/90 backdrop-blur"
+      className={`fixed inset-x-0 top-0 z-50 border-b-2 border-border transition-colors ${
+        scrolled ? "bg-background" : "bg-background/95"
       }`}
     >
       <nav className="flex items-stretch justify-between">
-        <a href="#" className="flex items-center gap-2 border-r-2 border-foreground px-5 py-4">
+        <a href="#" className="flex items-center gap-2 border-r-2 border-border px-5 py-4">
           <span className="font-pixel text-xl tracking-tight">TALOS</span>
           <span className="text-[10px] tracking-widest text-muted-foreground">/SUI</span>
         </a>
@@ -50,7 +50,7 @@ export function Navbar() {
             href="https://github.com/chrsnikhil"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden items-center border-l-2 border-foreground px-5 text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground md:flex"
+            className="hidden items-center border-l-2 border-border px-5 text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground md:flex"
           >
             GITHUB
           </a>
@@ -60,14 +60,14 @@ export function Navbar() {
             </span>
             <span className="px-5 text-[11px] uppercase tracking-wider">Launch Dashboard</span>
           </a>
-          <button className="border-l-2 border-foreground px-4 lg:hidden" onClick={() => setOpen(!open)} aria-label="Menu">
+          <button className="border-l-2 border-border px-4 lg:hidden" onClick={() => setOpen(!open)} aria-label="Menu">
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </nav>
 
       {open && (
-        <div className="border-t-2 border-foreground bg-background lg:hidden">
+        <div className="border-t-2 border-border bg-background lg:hidden">
           {links.map((l) => (
             <a
               key={l.name}

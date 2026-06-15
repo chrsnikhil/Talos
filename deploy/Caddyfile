@@ -1,0 +1,15 @@
+# Caddy reverse proxy for the Talos dashboard.
+# Replace the domain below with your VM's DNS name, then Caddy auto-provisions a
+# Let's Encrypt TLS cert for it (HTTP->HTTPS redirect is automatic).
+#
+# Easiest domain: give the Azure public IP a DNS label and use the resulting FQDN, e.g.
+#   talos-demo.eastus.cloudapp.azure.com
+# (see deploy/README.md for the `az network public-ip update --dns-name` step).
+#
+# Install: copy this to /etc/caddy/Caddyfile (with your real domain), then:
+#   sudo systemctl reload caddy
+
+talos-demo.eastus.cloudapp.azure.com {
+	encode gzip
+	reverse_proxy localhost:3000
+}

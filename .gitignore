@@ -7,3 +7,7 @@ node_modules
 .env.production.local
 
 *.tsbuildinfo
+
+# Talos runtime state — regenerated on each box; not source.
+.talos-swarm.json
+.talos-decisions.json

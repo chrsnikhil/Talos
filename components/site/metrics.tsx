@@ -14,7 +14,7 @@ const stats = [
 
 export function Metrics() {
   return (
-    <section id="live" className="w-full border-b-2 border-foreground px-6 py-20 lg:px-12">
+    <section id="live" className="w-full border-b border-border/25 px-6 py-20 lg:px-12">
       {/* label row */}
       <div className="mb-10 flex items-center gap-4">
         <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">// SECTION: LIVE</span>
@@ -49,12 +49,12 @@ export function Metrics() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-60px" }}
         transition={{ duration: 0.6, delay: 0.15, ease }}
-        className="grid grid-cols-2 border-2 border-foreground lg:grid-cols-4"
+        className="grid grid-cols-2 gap-4 lg:grid-cols-4"
       >
-        {stats.map((s, i) => (
+        {stats.map((s) => (
           <div
             key={s.l}
-            className={`px-5 py-8 ${i < 3 ? "border-r-0 lg:border-r-2" : ""} ${i < 2 ? "border-b-2 lg:border-b-0" : ""} border-border`}
+            className="glass-card px-5 py-8"
           >
             <div className="font-pixel text-4xl text-accent">{s.v}</div>
             <div className="mt-3 text-[10px] uppercase tracking-widest text-muted-foreground">{s.l}</div>

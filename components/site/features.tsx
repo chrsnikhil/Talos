@@ -34,7 +34,7 @@ const cells = [
 
 export function Features() {
   return (
-    <section className="w-full border-b-2 border-foreground px-6 py-20 lg:px-12">
+    <section className="w-full border-b border-border/25 px-6 py-20 lg:px-12">
       {/* label row */}
       <div className="mb-10 flex items-center gap-4">
         <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">// SECTION: CAPABILITIES</span>
@@ -52,12 +52,9 @@ export function Features() {
         SAFETY BY <span className="text-accent">ENFORCEMENT.</span>
       </motion.h2>
 
-      <div className="grid grid-cols-1 border-2 border-foreground md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {cells.map((c, i) => {
           const Icon = c.icon
-          const borderR = i % 2 === 0 ? "md:border-r-2" : ""
-          const borderB = i < 2 ? "border-b-2" : "border-b-2 md:border-b-0"
-          const lastNoB = i === 3 ? "border-b-0" : ""
           return (
             <motion.div
               key={c.n}
@@ -65,7 +62,7 @@ export function Features() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.6, delay: i * 0.1, ease }}
-              className={`flex min-h-[280px] flex-col border-foreground p-6 sm:p-8 ${borderR} ${borderB} ${lastNoB}`}
+              className="glass-card flex min-h-[280px] flex-col p-6 sm:p-8"
             >
               <div className="flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{c.n}</span>

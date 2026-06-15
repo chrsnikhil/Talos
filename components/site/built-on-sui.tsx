@@ -34,7 +34,7 @@ const cells = [
 
 export function BuiltOnSui() {
   return (
-    <section id="stack" className="w-full border-b-2 border-foreground px-6 py-20 lg:px-12">
+    <section id="stack" className="w-full border-b border-border/25 px-6 py-20 lg:px-12">
       {/* label row */}
       <div className="mb-10 flex items-center gap-4">
         <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">// SECTION: SUI</span>
@@ -62,7 +62,7 @@ export function BuiltOnSui() {
         Sui isn&apos;t the brain — it&apos;s what makes trusting the brain with money safe.
       </motion.p>
 
-      <div className="grid border-2 border-foreground md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {cells.map((c, i) => {
           const Icon = c.icon
           return (
@@ -72,10 +72,10 @@ export function BuiltOnSui() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.6, delay: i * 0.1, ease }}
-              className={`p-6 ${i % 2 === 0 ? "md:border-r-2 md:border-foreground" : ""} ${i < 2 ? "border-b-2 border-foreground" : ""}`}
+              className="glass-card p-6"
             >
               <div className="mb-5 flex items-center justify-between">
-                <span className="flex h-10 w-10 items-center justify-center border-2 border-foreground">
+                <span className="glass-chip flex h-10 w-10 items-center justify-center">
                   <Icon size={18} strokeWidth={2} className="text-accent" />
                 </span>
                 <span className="font-pixel text-lg text-accent">[{c.code}]</span>

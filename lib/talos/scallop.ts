@@ -33,7 +33,10 @@ export async function depositUsdc(amountUsdc: number): Promise<{ digest: string;
   const builder = await sdk().createScallopBuilder()
   const tx = builder.createTxBlock()
   tx.setSender(AGENT_ADDRESS)
-  await tx.depositQuick(Math.round(amountUsdc * 1e6), "usdc")
+  // depositQuick returns the minted sCoin (market coin). It must be consumed,
+  // or the tx aborts with UnusedValueWithoutDrop — transfer it back to the agent.
+  const sCoin = await tx.depositQuick(Math.round(amountUsdc * 1e6), "usdc")
+  tx.transferObjects([sCoin], AGENT_ADDRESS)
   const res = await mainnetClient.signAndExecuteTransaction({
     signer: keypair,
     transaction: tx.txBlock as any,
@@ -48,7 +51,10 @@ export async function withdrawUsdc(amountUsdc: number): Promise<{ digest: string
   const builder = await sdk().createScallopBuilder()
   const tx = builder.createTxBlock()
   tx.setSender(AGENT_ADDRESS)
-  await tx.withdrawQuick(Math.round(amountUsdc * 1e6), "usdc")
+  // withdrawQuick returns the redeemed USDC coin — transfer it back to the agent
+  // so it isn't left as an unused value (UnusedValueWithoutDrop).
+  const usdcCoin = await tx.withdrawQuick(Math.round(amountUsdc * 1e6), "usdc")
+  tx.transferObjects([usdcCoin], AGENT_ADDRESS)
   const res = await mainnetClient.signAndExecuteTransaction({
     signer: keypair,
     transaction: tx.txBlock as any,

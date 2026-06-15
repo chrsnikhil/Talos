@@ -71,6 +71,23 @@
     font-family: var(--font-geist-pixel-grid), var(--font-mono), monospace;
   }
 
+  /* frosted, opaque-ish card — soft hairline ring + drop shadow, no hard border.
+     No backdrop-filter: blurring an animated background every frame is the main
+     perf cost. A semi-opaque fill still lets the background tint through, cheaply. */
+  .glass-card {
+    background-color: hsl(var(--card) / 0.82);
+    border: 1px solid hsl(var(--accent) / 0.55);
+    box-shadow:
+      inset 0 0 0 1px hsl(var(--accent) / 0.15),
+      0 0 16px -4px hsl(var(--accent) / 0.25),
+      0 16px 40px -20px hsl(0 0% 0% / 0.55);
+  }
+
+  /* filled subtle chip — replaces hard-bordered tags */
+  .glass-chip {
+    background-color: hsl(var(--muted) / 0.85);
+  }
+
   .dot-grid-bg {
     background-image: radial-gradient(circle, #c4c2b8 1px, transparent 1px);
     background-size: 24px 24px;

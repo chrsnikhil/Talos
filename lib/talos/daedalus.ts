@@ -1,30 +1,19 @@
 import { readSpendEvents, readRatedTxs, submitRating, type SpendEvent } from "./chain"
+import { thinkJson, llmInfo } from "./llm"
 
 type Verdict = { score: number; verdict: string }
 
-/** Optional LLM critique; falls back to heuristic when no key. */
-async function evaluateWithClaude(s: SpendEvent): Promise<Verdict | null> {
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) return null
+/** LLM critique (Mistral or Claude, whichever key is set); null → heuristic fallback. */
+async function evaluateWithLLM(s: SpendEvent): Promise<Verdict | null> {
+  if (llmInfo().provider === "none") return null
   const prompt =
     `You are Daedalus, an independent critic auditing the agent Icarus on Sui. ` +
     `Icarus rebalanced ${s.amount} units into "${s.protocol}" (remaining budget ${s.remaining}). ` +
     `Judge whether this was a sound, well-sized, in-scope move. ` +
     `Reply ONLY JSON: {"score": <0-100 int>, "verdict": "<short reason, <=80 chars>"}.`
-  try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 200, messages: [{ role: "user", content: prompt }] }),
-    })
-    const j: any = await r.json()
-    const m = (j?.content?.[0]?.text ?? "").match(/\{[\s\S]*\}/)
-    if (!m) return null
-    const d = JSON.parse(m[0])
-    return { score: Math.max(0, Math.min(100, Math.round(Number(d.score) || 0))), verdict: String(d.verdict ?? "").slice(0, 80) }
-  } catch {
-    return null
-  }
+  const d = await thinkJson(prompt, 200)
+  if (!d) return null
+  return { score: Math.max(0, Math.min(100, Math.round(Number(d.score) || 0))), verdict: String(d.verdict ?? "").slice(0, 80) }
 }
 
 /** Heuristic critique: every Icarus move is policy-bounded and in-scope, so it
@@ -37,7 +26,7 @@ function evaluateHeuristic(s: SpendEvent): Verdict {
 }
 
 async function evaluate(s: SpendEvent): Promise<Verdict> {
-  return (await evaluateWithClaude(s)) ?? evaluateHeuristic(s)
+  return (await evaluateWithLLM(s)) ?? evaluateHeuristic(s)
 }
 
 /** One Daedalus pass: judge every un-rated Icarus rebalance and record it on-chain. */

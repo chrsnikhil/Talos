@@ -38,7 +38,7 @@ const phases = [
 
 export function Roadmap() {
   return (
-    <section id="roadmap" className="w-full border-b-2 border-foreground px-6 py-20 lg:px-12">
+    <section id="roadmap" className="w-full border-b border-border/25 px-6 py-20 lg:px-12">
       {/* label row */}
       <div className="mb-10 flex items-center gap-4">
         <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">// SECTION: ROADMAP</span>
@@ -56,10 +56,8 @@ export function Roadmap() {
         ROAD<span className="text-accent">MAP.</span>
       </motion.h2>
 
-      <div className="grid grid-cols-1 border-2 border-foreground md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {phases.map((p, i) => {
-          const borderR = i < 2 ? "md:border-r-2" : ""
-          const borderB = i < 2 ? "border-b-2 md:border-b-0" : ""
           return (
             <motion.div
               key={p.title}
@@ -67,9 +65,9 @@ export function Roadmap() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.6, delay: i * 0.1, ease }}
-              className={`flex flex-col border-foreground p-6 sm:p-8 ${borderR} ${borderB}`}
+              className="glass-card flex flex-col p-6 sm:p-8"
             >
-              <span className="flex w-fit items-center gap-1.5 border-2 border-foreground px-2.5 py-1 text-[10px] uppercase tracking-widest">
+              <span className="glass-chip flex w-fit items-center gap-1.5 px-2.5 py-1 text-[10px] uppercase tracking-widest">
                 <span className="h-1.5 w-1.5 bg-accent" />
                 {p.chip}
               </span>

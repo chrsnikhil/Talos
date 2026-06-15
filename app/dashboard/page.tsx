@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { ArrowUpRight, ArrowLeft } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
-const EXPLORER = "https://suiscan.xyz/testnet"
+const EXPLORER = "https://suiscan.xyz/mainnet"
 const ACCENT = "#3b97fb"
 const GRID = "#2e3440"
 const TICK = "#8a93a6"
@@ -23,6 +23,15 @@ type Policy = {
   error?: string
 }
 type Ev = { type: string; tx: string; timestampMs: number; data: Record<string, any> }
+type Swarm = {
+  active: boolean
+  cycles: number
+  startedAt?: string | null
+  lastTickAt?: string | null
+  provider?: string
+  model?: string
+  intervalMs?: number
+}
 
 const trunc = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "—")
 function ago(ms: number) {
@@ -70,7 +79,7 @@ type Tab = (typeof TABS)[number]
 function ChartTip({ active, payload, label, unit }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="border-2 border-foreground bg-background px-3 py-2 text-[10px] uppercase tracking-widest">
+    <div className="border-2 border-border bg-background px-3 py-2 text-[10px] uppercase tracking-widest">
       <div className="text-muted-foreground">{label}</div>
       <div className="text-accent">
         {payload[0].value}
@@ -82,8 +91,8 @@ function ChartTip({ active, payload, label, unit }: any) {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border-2 border-foreground">
-      <div className="border-b-2 border-foreground px-5 py-2.5 text-[11px] uppercase tracking-widest">{title}</div>
+    <div className="border-2 border-border">
+      <div className="border-b-2 border-border px-5 py-2.5 text-[11px] uppercase tracking-widest">{title}</div>
       {children}
     </div>
   )
@@ -102,6 +111,7 @@ export default function Dashboard() {
   const [policy, setPolicy] = useState<Policy | null>(null)
   const [events, setEvents] = useState<Ev[]>([])
   const [rep, setRep] = useState<{ total: number; avg: number } | null>(null)
+  const [swarm, setSwarm] = useState<Swarm | null>(null)
   const [updated, setUpdated] = useState<Date | null>(null)
   const [tab, setTab] = useState<Tab>("OVERVIEW")
 
@@ -109,15 +119,17 @@ export default function Dashboard() {
     let alive = true
     async function tick() {
       try {
-        const [p, a, rp] = await Promise.all([
+        const [p, a, rp, sw] = await Promise.all([
           fetch("/api/talos/policy", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/activity", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/reputation", { cache: "no-store" }).then((r) => r.json()),
+          fetch("/api/talos/swarm", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
         ])
         if (!alive) return
         if (!p.error) setPolicy(p)
         setEvents(a.events || [])
         if (!rp.error) setRep(rp)
+        if (sw && !sw.error) setSwarm(sw)
         setUpdated(new Date())
       } catch {
         /* keep last good state */
@@ -155,8 +167,8 @@ export default function Dashboard() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       {/* top bar */}
-      <div className="sticky top-0 z-40 flex items-stretch justify-between border-b-2 border-foreground bg-background">
-        <a href="/" className="flex items-center gap-2 border-r-2 border-foreground px-5 py-4 hover:bg-foreground hover:text-background">
+      <div className="sticky top-0 z-40 flex items-stretch justify-between border-b-2 border-border bg-background">
+        <a href="/" className="flex items-center gap-2 border-r-2 border-border px-5 py-4 hover:bg-foreground hover:text-background">
           <ArrowLeft size={16} />
           <span className="font-pixel text-lg">TALOS</span>
           <span className="text-[10px] tracking-widest text-muted-foreground">/OPERATOR</span>
@@ -171,12 +183,12 @@ export default function Dashboard() {
       </div>
 
       {/* tab bar */}
-      <div className="flex items-stretch overflow-x-auto border-b-2 border-foreground">
+      <div className="flex items-stretch overflow-x-auto border-b-2 border-border">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`whitespace-nowrap border-r-2 border-foreground px-5 py-3 text-[11px] uppercase tracking-widest transition-colors ${
+            className={`whitespace-nowrap border-r-2 border-border px-5 py-3 text-[11px] uppercase tracking-widest transition-colors ${
               tab === t ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -184,7 +196,7 @@ export default function Dashboard() {
           </button>
         ))}
         <div className="hidden flex-1 items-center justify-end px-5 text-[10px] uppercase tracking-widest text-muted-foreground lg:flex">
-          ICARUS // DAEDALUS · SUI TESTNET
+          ICARUS // DAEDALUS · SUI MAINNET
         </div>
       </div>
 
@@ -192,7 +204,9 @@ export default function Dashboard() {
         {/* ===== OVERVIEW ===== */}
         {tab === "OVERVIEW" && (
           <div className="space-y-8">
-            <div className="grid grid-cols-2 border-2 border-foreground sm:grid-cols-3 lg:grid-cols-6 [&>*]:border-b-2 [&>*]:border-r-2 [&>*]:border-border">
+            <SwarmHeartbeat swarm={swarm} />
+
+            <div className="grid grid-cols-2 border-2 border-border sm:grid-cols-3 lg:grid-cols-6 [&>*]:border-b-2 [&>*]:border-r-2 [&>*]:border-border">
               <Stat label="REMAINING" value={policy?.remaining_budget ?? "—"} accent />
               <Stat label="TOTAL SPENT" value={policy?.total_spent ?? "—"} />
               <Stat label="PER-TX CAP" value={policy?.per_tx_cap ?? "—"} />
@@ -203,7 +217,7 @@ export default function Dashboard() {
 
             <Panel title={`BUDGET LEASH // ${pct}% REMAINING`}>
               <div className="px-5 pt-5">
-                <div className="h-3 w-full border-2 border-foreground">
+                <div className="h-3 w-full border-2 border-border">
                   <div className="h-full bg-accent transition-all duration-700" style={{ width: `${pct}%` }} />
                 </div>
               </div>
@@ -273,13 +287,13 @@ export default function Dashboard() {
                 <div className="mb-2.5 text-[10px] uppercase tracking-widest text-muted-foreground">ALLOWED PROTOCOLS</div>
                 <div className="flex flex-wrap gap-2">
                   {(policy?.protocols ?? []).map((p) => (
-                    <span key={p} className="border border-foreground px-2 py-1 text-[10px] uppercase tracking-wider">{p}</span>
+                    <span key={p} className="border border-border px-2 py-1 text-[10px] uppercase tracking-wider">{p}</span>
                   ))}
                   {(!policy || policy.protocols.length === 0) && <span className="text-xs text-muted-foreground">—</span>}
                 </div>
               </div>
               <a href={`${EXPLORER}/object/${policy?.policyId ?? ""}`} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 border-t-2 border-foreground px-5 py-3 text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-foreground hover:text-background">
+                className="flex items-center justify-center gap-2 border-t-2 border-border px-5 py-3 text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-foreground hover:text-background">
                 VIEW POLICY ON EXPLORER <ArrowUpRight size={14} />
               </a>
             </Panel>
@@ -313,7 +327,7 @@ export default function Dashboard() {
         {/* ===== REPUTATION ===== */}
         {tab === "REPUTATION" && (
           <div className="space-y-8">
-            <div className="grid grid-cols-2 border-2 border-foreground [&>*]:border-r-2 [&>*]:border-border">
+            <div className="grid grid-cols-2 border-2 border-border [&>*]:border-r-2 [&>*]:border-border">
               <Stat label="AVG SCORE /100" value={rep ? rep.avg : "—"} accent />
               <Stat label="TOTAL RATINGS" value={rep ? rep.total : "—"} />
             </div>
@@ -361,10 +375,55 @@ export default function Dashboard() {
   )
 }
 
+function SwarmHeartbeat({ swarm }: { swarm: Swarm | null }) {
+  const live = Boolean(swarm?.active)
+  const brain =
+    !swarm || !swarm.provider || swarm.provider === "none"
+      ? "HEURISTIC"
+      : `${swarm.provider.toUpperCase()}${swarm.model ? ` · ${swarm.model}` : ""}`
+  const uptime = swarm?.startedAt ? ago(Date.parse(swarm.startedAt)) : "—"
+  const lastTick = swarm?.lastTickAt ? ago(Date.parse(swarm.lastTickAt)) : "—"
+  const tick = swarm?.intervalMs ? `${Math.round(swarm.intervalMs / 1000)}s` : "—"
+  const cell = "px-5 py-5 border-r-2 border-border"
+  return (
+    <div className="border-2 border-border">
+      <div className="flex items-center justify-between border-b-2 border-border px-5 py-2.5">
+        <span className="text-[11px] uppercase tracking-widest">AUTONOMOUS SWARM // HEARTBEAT</span>
+        <span className="flex items-center gap-2 text-[10px] uppercase tracking-widest">
+          <span className={`h-2 w-2 ${live ? "animate-blink bg-accent" : "bg-muted-foreground"}`} />
+          {live ? "LIVE" : "IDLE"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 [&>*]:border-b-2 [&>*]:border-border">
+        <div className={cell}>
+          <div className="font-pixel text-3xl text-accent">{swarm?.cycles ?? "—"}</div>
+          <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">CYCLES RUN</div>
+        </div>
+        <div className={cell}>
+          <div className="font-pixel text-lg">{brain}</div>
+          <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">BRAIN</div>
+        </div>
+        <div className={cell}>
+          <div className="font-pixel text-3xl">{uptime}</div>
+          <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">UPTIME</div>
+        </div>
+        <div className={cell}>
+          <div className="font-pixel text-3xl">{lastTick}</div>
+          <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">LAST TICK</div>
+        </div>
+        <div className="px-5 py-5">
+          <div className="font-pixel text-3xl">{tick}</div>
+          <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">INTERVAL</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ActivityRow({ e }: { e: Ev }) {
   return (
     <div className="flex items-center gap-4 border-b border-border px-5 py-3">
-      <span className="shrink-0 border border-foreground px-2 py-1 text-[9px] uppercase tracking-wider text-accent">{LABEL[e.type] ?? e.type}</span>
+      <span className="shrink-0 border border-border px-2 py-1 text-[9px] uppercase tracking-wider text-accent">{LABEL[e.type] ?? e.type}</span>
       <span className="flex-1 truncate text-xs text-muted-foreground">{evDetail(e)}</span>
       <span className="hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">{ago(e.timestampMs)}</span>
       <a href={`${EXPLORER}/tx/${e.tx}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" title="View tx">

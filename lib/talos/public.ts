@@ -1,12 +1,12 @@
 // Read-only, server-safe config for the dashboard (no private key here).
-// Falls back to the live testnet deployment so the dashboard works out of the box.
-export const NETWORK = process.env.SUI_NETWORK || "testnet"
-export const RPC = process.env.SUI_RPC || "https://fullnode.testnet.sui.io:443"
+// Falls back to the live MAINNET deployment so the dashboard works out of the box.
+export const NETWORK = process.env.SUI_NETWORK || "mainnet"
+export const RPC = process.env.SUI_RPC || "https://fullnode.mainnet.sui.io:443"
 export const PACKAGE_ID =
-  process.env.TALOS_PACKAGE_ID || "0x8a01a3e3dfcafd078bef29bbbc8af6d21da120ee449febd98314311cc0444b31"
+  process.env.TALOS_PACKAGE_ID || "0x75b7f5d2926f333d8849726655904111420d4f86acb2578274b31338bcf8142c"
 export const POLICY_ID =
-  process.env.TALOS_POLICY_ID || "0xed40900a9e9c3fa65b350f99ea73469ecf7f0e42d806c6cc69cc0cf3bfa6993a"
+  process.env.TALOS_POLICY_ID || "0x61b198ecfacb835b9078274e2c3de2f84ce8ea1d0dd9a99bf13afb65584fe9bf"
 export const REPUTATION_ID =
-  process.env.TALOS_REPUTATION_ID || "0xb8912d9e70ca432ec23ee7a69e40e254f767695b0740bd4133f17003f1a13806"
+  process.env.TALOS_REPUTATION_ID || "0xcadc34281fa4a2415b9b6ef94a498cb91bf9030fcbe080efc1136498f264a7a2"
 
 export const EXPLORER = `https://suiscan.xyz/${NETWORK}`

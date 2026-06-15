@@ -40,7 +40,7 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="w-full border-b-2 border-foreground px-6 py-20 lg:px-12">
+    <section id="how-it-works" className="w-full border-b border-border/25 px-6 py-20 lg:px-12">
       {/* label row */}
       <div className="mb-10 flex items-center gap-4">
         <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">// SECTION: CYCLE</span>
@@ -68,11 +68,9 @@ export function HowItWorks() {
         THE AGENT <span className="text-accent">CYCLE.</span>
       </motion.h2>
 
-      <div className="grid border-2 border-foreground md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-5">
         {steps.map((step, i) => {
           const Icon = step.icon
-          const borderB = i < steps.length - 1 ? "border-b-2 md:border-b-0" : ""
-          const borderR = i < steps.length - 1 ? "md:border-r-2" : ""
           return (
             <motion.div
               key={step.index}
@@ -80,7 +78,7 @@ export function HowItWorks() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.6, delay: i * 0.1, ease }}
-              className={`flex min-h-[220px] flex-col border-foreground p-6 ${borderR} ${borderB}`}
+              className="glass-card flex min-h-[220px] flex-col p-6"
             >
               <div className="flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{step.index}</span>

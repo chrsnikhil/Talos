@@ -15,7 +15,7 @@ const stats = [
 
 export function Hero() {
   return (
-    <section className="relative w-full border-b-2 border-foreground px-6 pb-16 pt-28 lg:px-12 lg:pt-32">
+    <section className="relative w-full border-b border-border/25 px-6 pb-16 pt-28 lg:px-12 lg:pt-32">
       <div className="dot-grid-bg pointer-events-none absolute inset-0 opacity-60" />
 
       <div className="relative">
@@ -72,7 +72,7 @@ export function Hero() {
               </a>
               <a
                 href="#how-it-works"
-                className="flex items-center border-2 border-foreground px-5 py-3 text-[11px] uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
+                className="glass-card flex items-center px-5 py-3 text-[11px] uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
               >
                 How it works
               </a>
@@ -84,9 +84,9 @@ export function Hero() {
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.15, ease }}
-            className="border-2 border-foreground bg-background"
+            className="glass-card"
           >
-            <div className="flex items-center justify-between border-b-2 border-foreground px-4 py-2 text-[10px] uppercase tracking-widest">
+            <div className="flex items-center justify-between border-b border-border/40 px-4 py-2 text-[10px] uppercase tracking-widest">
               <span>TALOS://SWARM</span>
               <span className="flex items-center gap-1.5 text-muted-foreground">
                 <span className="h-1.5 w-1.5 bg-accent" /> ONLINE
@@ -95,17 +95,17 @@ export function Hero() {
             <div className="dot-grid-bg relative aspect-[4/3] w-full">
               <Image src="/hero-cut.png" alt="Icarus and Daedalus" fill priority className="object-contain p-5" />
             </div>
-            <div className="grid grid-cols-2 border-t-2 border-foreground text-[10px] uppercase tracking-widest">
-              <span className="border-r-2 border-foreground px-4 py-2.5">ΙΚΑΡΟΣ // EXECUTOR</span>
+            <div className="grid grid-cols-2 border-t border-border/40 text-[10px] uppercase tracking-widest">
+              <span className="border-r border-border/40 px-4 py-2.5">ΙΚΑΡΟΣ // EXECUTOR</span>
               <span className="px-4 py-2.5 text-right">ΔΑΙΔΑΛΟΣ // CRITIC</span>
             </div>
           </motion.div>
         </div>
 
         {/* stat strip */}
-        <div className="mt-14 grid grid-cols-2 border-2 border-foreground lg:grid-cols-4">
-          {stats.map((s, i) => (
-            <div key={s.l} className={`px-5 py-6 ${i < 3 ? "border-r-0 lg:border-r-2" : ""} ${i < 2 ? "border-b-2 lg:border-b-0" : ""} border-border`}>
+        <div className="mt-14 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {stats.map((s) => (
+            <div key={s.l} className="glass-card px-5 py-6">
               <div className="font-pixel text-3xl">{s.v}</div>
               <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">{s.l}</div>
             </div>

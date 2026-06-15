@@ -28,10 +28,10 @@ const columns = [
 
 export function Footer() {
   return (
-    <footer className="w-full border-t-2 border-foreground">
+    <footer className="w-full border-t border-border/25">
       <div className="grid grid-cols-1 lg:grid-cols-4">
         {/* brand */}
-        <div className="border-b-2 border-foreground px-6 py-12 lg:border-b-0 lg:border-r-2 lg:px-12">
+        <div className="border-b border-border/25 px-6 py-12 lg:border-b-0 lg:border-r lg:border-border/25 lg:px-12">
           <span className="font-pixel text-2xl tracking-tight">TALOS</span>
           <p className="mt-4 max-w-xs text-[11px] uppercase leading-relaxed tracking-wider text-muted-foreground">
             AUTONOMOUS DEFI AGENTS ON SUI // BOUNDED BY AN ON-CHAIN POLICY
@@ -42,7 +42,7 @@ export function Footer() {
         {columns.map((column, i) => (
           <div
             key={column.title}
-            className={`border-b-2 border-foreground px-6 py-12 lg:border-b-0 lg:px-8 ${i < 2 ? "lg:border-r-2" : ""}`}
+            className={`border-b border-border/25 px-6 py-12 lg:border-b-0 lg:px-8 ${i < 2 ? "lg:border-r lg:border-border/25" : ""}`}
           >
             <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground">{column.title}</h3>
             <ul className="mt-5 space-y-3">
@@ -63,7 +63,7 @@ export function Footer() {
       </div>
 
       {/* bottom bar */}
-      <div className="flex flex-col items-start justify-between gap-4 border-t-2 border-foreground px-6 py-5 sm:flex-row sm:items-center lg:px-12">
+      <div className="flex flex-col items-start justify-between gap-4 border-t border-border/25 px-6 py-5 sm:flex-row sm:items-center lg:px-12">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
           TALOS // SUI OVERFLOW 2026 // AGENTIC WEB
         </p>
