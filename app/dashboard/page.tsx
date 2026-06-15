@@ -1,9 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ArrowUpRight, ArrowLeft, Activity, ShieldCheck, Ban, Gavel } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { ArrowUpRight, ArrowLeft } from "lucide-react"
 
 const EXPLORER = "https://suiscan.xyz/testnet"
 
@@ -26,19 +24,19 @@ const trunc = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "—")
 function ago(ms: number) {
   if (!ms) return ""
   const s = Math.max(0, Math.floor((Date.now() - ms) / 1000))
-  if (s < 60) return `${s}s ago`
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`
-  return `${Math.floor(s / 86400)}d ago`
+  if (s < 60) return `${s}s`
+  if (s < 3600) return `${Math.floor(s / 60)}m`
+  if (s < 86400) return `${Math.floor(s / 3600)}h`
+  return `${Math.floor(s / 86400)}d`
 }
 const LABEL: Record<string, string> = {
-  SpendAuthorized: "Rebalance",
-  PolicyRevoked: "Revoked",
-  PolicyCreated: "Created",
-  ToppedUp: "Top-up",
-  ExpiryExtended: "Extended",
-  CriticRating: "Rating",
-  ReputationCreated: "Critic init",
+  SpendAuthorized: "REBALANCE",
+  PolicyRevoked: "REVOKED",
+  PolicyCreated: "CREATED",
+  ToppedUp: "TOP-UP",
+  ExpiryExtended: "EXTENDED",
+  CriticRating: "RATING",
+  ReputationCreated: "CRITIC INIT",
 }
 function evDetail(e: Ev): string {
   const d = e.data || {}
@@ -62,11 +60,11 @@ function evDetail(e: Ev): string {
   }
 }
 
-function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+function Cell({ label, value, accent }: { label: string; value: React.ReactNode; accent?: boolean }) {
   return (
-    <div className="bg-card px-5 py-6 text-center">
-      <div className="text-2xl font-semibold tracking-tight sm:text-3xl">{value}</div>
-      <div className="mt-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
+    <div className="px-5 py-6">
+      <div className={`font-pixel text-3xl ${accent ? "text-accent" : ""}`}>{value}</div>
+      <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
     </div>
   )
 }
@@ -110,121 +108,113 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 lg:px-8">
-          <a href="/" className="group flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground font-mono text-xs font-bold">Τ</span>
-            <span className="font-semibold">Talos</span>
-            <span className="font-mono text-xs text-muted-foreground">operator</span>
-          </a>
-          <Badge variant={status === "ACTIVE" ? "default" : "destructive"} className="font-mono">
-            <span className="mr-1.5 inline-flex h-1.5 w-1.5 rounded-full bg-current" />
-            {status}
-          </Badge>
+      {/* top bar */}
+      <div className="sticky top-0 z-40 flex items-stretch justify-between border-b-2 border-foreground bg-background">
+        <a href="/" className="flex items-center gap-2 border-r-2 border-foreground px-5 py-4 hover:bg-foreground hover:text-background">
+          <ArrowLeft size={16} />
+          <span className="font-pixel text-lg">TALOS</span>
+          <span className="text-[10px] tracking-widest text-muted-foreground">/OPERATOR</span>
+        </a>
+        <div className="flex items-center gap-2 px-5 text-[11px] uppercase tracking-widest">
+          <span className={`h-2 w-2 ${status === "ACTIVE" ? "animate-blink bg-accent" : "bg-foreground"}`} />
+          {status}
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-5 py-12 lg:px-8 lg:py-16">
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Live · Sui testnet</span>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight lg:text-5xl">Icarus, live</h1>
-            <p className="mt-2 font-mono text-xs text-muted-foreground">
-              policy {trunc(policy?.policyId)} · agent {trunc(policy?.agent)}
-            </p>
-          </div>
-          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-            {updated ? `updated ${updated.toLocaleTimeString()}` : "connecting…"} · auto 5s
+      <div className="px-6 py-10 lg:px-12">
+        {/* label row */}
+        <div className="mb-8 flex items-center gap-4">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">// ICARUS: LIVE</span>
+          <div className="flex-1 border-t border-border" />
+          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            {updated ? `UPDATED ${updated.toLocaleTimeString()}` : "CONNECTING…"} // AUTO 5S
           </span>
         </div>
 
+        <h1 className="font-pixel text-4xl lg:text-5xl">ICARUS // LIVE</h1>
+        <p className="mt-3 text-xs text-muted-foreground">
+          policy {trunc(policy?.policyId)} · agent {trunc(policy?.agent)} · testnet
+        </p>
+
         {/* budget */}
-        <div className="mb-8 overflow-hidden rounded-xl border border-border">
-          <div className="flex items-center justify-between border-b border-border px-5 py-3">
-            <span className="font-semibold">Budget leash</span>
-            <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{pct}% remaining</span>
+        <div className="mt-8 border-2 border-foreground">
+          <div className="flex items-center justify-between border-b-2 border-foreground px-5 py-2.5 text-[11px] uppercase tracking-widest">
+            <span>BUDGET LEASH</span>
+            <span className="text-muted-foreground">{pct}% REMAINING</span>
           </div>
           <div className="px-5 pt-5">
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${pct}%` }} />
+            <div className="h-3 w-full border-2 border-foreground">
+              <div className="h-full bg-accent transition-all duration-700" style={{ width: `${pct}%` }} />
             </div>
           </div>
-          <div className="mt-2 grid grid-cols-3 gap-px bg-border">
-            <Stat label="Remaining" value={policy?.remaining_budget ?? "—"} />
-            <Stat label="Per-tx cap" value={policy?.per_tx_cap ?? "—"} />
-            <Stat label="Total spent" value={policy?.total_spent ?? "—"} />
+          <div className="mt-2 grid grid-cols-3 divide-x-2 divide-foreground">
+            <Cell label="REMAINING" value={policy?.remaining_budget ?? "—"} accent />
+            <Cell label="PER-TX CAP" value={policy?.per_tx_cap ?? "—"} />
+            <Cell label="TOTAL SPENT" value={policy?.total_spent ?? "—"} />
           </div>
         </div>
 
-        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,360px)_1fr]">
+        <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,360px)_1fr]">
+          {/* left column */}
           <div className="space-y-8">
-            <div className="overflow-hidden rounded-xl border border-border">
-              <div className="flex items-center gap-2 border-b border-border px-5 py-3">
-                {status === "REVOKED" ? <Ban className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4 text-primary" />}
-                <span className="font-semibold">Policy</span>
-              </div>
+            <div className="border-2 border-foreground">
+              <div className="border-b-2 border-foreground px-5 py-2.5 text-[11px] uppercase tracking-widest">POLICY</div>
               {[
-                { k: "Status", v: status },
-                { k: "Owner", v: trunc(policy?.owner) },
-                { k: "Agent", v: trunc(policy?.agent) },
-                { k: "Expires", v: policy ? new Date(policy.expires_at_ms).toLocaleDateString() : "—" },
+                { k: "STATUS", v: status },
+                { k: "OWNER", v: trunc(policy?.owner) },
+                { k: "AGENT", v: trunc(policy?.agent) },
+                { k: "EXPIRES", v: policy ? new Date(policy.expires_at_ms).toLocaleDateString() : "—" },
               ].map((row) => (
-                <div key={row.k} className="flex items-center justify-between border-b border-border/60 px-5 py-3">
-                  <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{row.k}</span>
-                  <span className="font-mono text-sm">{row.v}</span>
+                <div key={row.k} className="flex items-center justify-between border-b border-border px-5 py-3 text-xs">
+                  <span className="uppercase tracking-widest text-muted-foreground">{row.k}</span>
+                  <span>{row.v}</span>
                 </div>
               ))}
               <div className="px-5 py-4">
-                <div className="mb-2.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Allowed protocols</div>
+                <div className="mb-2.5 text-[10px] uppercase tracking-widest text-muted-foreground">ALLOWED PROTOCOLS</div>
                 <div className="flex flex-wrap gap-2">
                   {(policy?.protocols ?? []).map((p) => (
-                    <Badge key={p} variant="secondary" className="font-mono">{p}</Badge>
+                    <span key={p} className="border border-foreground px-2 py-1 text-[10px] uppercase tracking-wider">{p}</span>
                   ))}
-                  {(!policy || policy.protocols.length === 0) && <span className="text-sm text-muted-foreground">—</span>}
+                  {(!policy || policy.protocols.length === 0) && <span className="text-xs text-muted-foreground">—</span>}
                 </div>
               </div>
               <a href={`${EXPLORER}/object/${policy?.policyId ?? ""}`} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 border-t border-border px-5 py-3.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                View policy on explorer <ArrowUpRight className="h-3.5 w-3.5" />
+                className="flex items-center justify-center gap-2 border-t-2 border-foreground px-5 py-3 text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-foreground hover:text-background">
+                VIEW ON EXPLORER <ArrowUpRight size={14} />
               </a>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-border">
-              <div className="flex items-center gap-2 border-b border-border px-5 py-3">
-                <Gavel className="h-4 w-4 text-primary" />
-                <span className="font-semibold">Daedalus — reputation</span>
-              </div>
-              <div className="flex items-center justify-around py-8">
-                <div className="text-center">
-                  <div className="text-4xl font-semibold tracking-tight">{rep ? rep.avg : "—"}</div>
-                  <div className="mt-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">avg /100</div>
+            <div className="border-2 border-foreground">
+              <div className="border-b-2 border-foreground px-5 py-2.5 text-[11px] uppercase tracking-widest">DAEDALUS // REPUTATION</div>
+              <div className="grid grid-cols-2 divide-x-2 divide-foreground">
+                <div className="px-5 py-7 text-center">
+                  <div className="font-pixel text-4xl text-accent">{rep ? rep.avg : "—"}</div>
+                  <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">AVG /100</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-4xl font-semibold tracking-tight">{rep ? rep.total : "—"}</div>
-                  <div className="mt-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">ratings</div>
+                <div className="px-5 py-7 text-center">
+                  <div className="font-pixel text-4xl">{rep ? rep.total : "—"}</div>
+                  <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">RATINGS</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-border">
-            <div className="flex items-center gap-2 border-b border-border px-5 py-3">
-              <Activity className="h-4 w-4" />
-              <span className="font-semibold">On-chain activity</span>
-            </div>
+          {/* activity feed */}
+          <div className="border-2 border-foreground">
+            <div className="border-b-2 border-foreground px-5 py-2.5 text-[11px] uppercase tracking-widest">ON-CHAIN ACTIVITY</div>
             {events.length === 0 && (
-              <div className="px-5 py-12 text-center text-sm text-muted-foreground">
-                No events yet — run the Icarus runtime to see live rebalances.
+              <div className="px-5 py-12 text-center text-xs text-muted-foreground">
+                NO EVENTS YET — RUN THE ICARUS RUNTIME TO SEE LIVE REBALANCES.
               </div>
             )}
             {events.map((e, i) => (
-              <div key={e.tx + i} className="flex items-center gap-4 border-b border-border/60 px-5 py-3.5">
-                <Badge variant="outline" className="shrink-0 font-mono text-[10px] uppercase">{LABEL[e.type] ?? e.type}</Badge>
-                <span className="flex-1 font-mono text-sm text-foreground/80">{evDetail(e)}</span>
-                <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{ago(e.timestampMs)}</span>
-                <a href={`${EXPLORER}/tx/${e.tx}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-foreground" title="View tx">
-                  <ArrowUpRight className="h-4 w-4" />
+              <div key={e.tx + i} className="flex items-center gap-4 border-b border-border px-5 py-3">
+                <span className="shrink-0 border border-foreground px-2 py-1 text-[9px] uppercase tracking-wider text-accent">{LABEL[e.type] ?? e.type}</span>
+                <span className="flex-1 truncate text-xs text-muted-foreground">{evDetail(e)}</span>
+                <span className="hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">{ago(e.timestampMs)}</span>
+                <a href={`${EXPLORER}/tx/${e.tx}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" title="View tx">
+                  <ArrowUpRight size={14} />
                 </a>
               </div>
             ))}

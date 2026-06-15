@@ -1,115 +1,119 @@
+"use client"
+
 import Image from "next/image"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { motion } from "framer-motion"
 import { Check } from "lucide-react"
+
+const ease = [0.22, 1, 0.36, 1] as const
 
 const agents = [
   {
     glyph: "Ι",
-    name: "Icarus",
-    role: "Executor",
-    image: "/i-cut.png",
-    alt: "Icarus — the executor agent",
+    name: "ICARUS",
+    role: "EXECUTOR",
+    img: "/i-cut.png",
+    alt: "Icarus executor agent",
     mandate:
-      "Reads live USDC lending APYs, decides, and rebalances real funds in a single atomic PTB — but only ever what its on-chain policy permits.",
+      "Reads live lending APYs, rebalances real USDC, and places real DeepBook orders — every move bounded by an on-chain Move policy.",
     bullets: [
-      "Atomic rebalance PTB",
-      "Bounded by on-chain policy",
-      "Decisions logged to Walrus",
+      "Atomic PTB calls agent_policy::authorize_spend on-chain",
+      "Capped budget, allowlist, expiry, owner revocation",
+      "Logs every decision to Walrus for verifiable memory",
     ],
-    tags: ["agent_spend", "PTB", "Suilend", "Scallop", "Walrus"],
+    primitives: ["agent_spend", "PTB", "DeepBook", "Walrus"],
   },
   {
     glyph: "Δ",
-    name: "Daedalus",
-    role: "Critic",
-    image: "/d-cut.png",
-    alt: "Daedalus — the critic agent",
+    name: "DAEDALUS",
+    role: "CRITIC",
+    img: "/d-cut.png",
+    alt: "Daedalus critic agent",
     mandate:
-      "Independently re-audits every decision from the same Walrus inputs and writes a tamper-proof rating on-chain. Holds funds for no one.",
-    bullets: ["Independent audit", "On-chain reputation", "avg 92/100"],
-    tags: ["Events", "Walrus", "CriticRating", "Reputation"],
+      "Independently rates every decision Icarus makes, writing a tamper-proof score on-chain — averaging 92/100.",
+    bullets: [
+      "Reads Icarus events and Walrus decision blobs",
+      "Emits an on-chain CriticRating per decision",
+      "Builds permanent, public agent reputation",
+    ],
+    primitives: ["Events", "Walrus", "CriticRating", "Reputation"],
   },
 ]
 
 export function Agents() {
   return (
-    <section id="agents" className="py-20 lg:py-28">
-      <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        <div className="max-w-2xl">
-          <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-            The swarm
-          </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight lg:text-4xl">
-            Two agents, zero trust
-          </h2>
-          <p className="mt-4 text-muted-foreground">
-            One agent moves the money, the other grades it — and neither has to
-            trust the other, because the chain keeps the receipts.
-          </p>
-        </div>
+    <section id="agents" className="w-full border-b-2 border-foreground px-6 py-20 lg:px-12">
+      {/* label row */}
+      <div className="mb-10 flex items-center gap-4">
+        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">// SECTION: SWARM</span>
+        <div className="flex-1 border-t border-border" />
+        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">004</span>
+      </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-2">
-          {agents.map((agent) => (
-            <Card
-              key={agent.name}
-              className="flex flex-col overflow-hidden rounded-2xl border border-border shadow-sm"
-            >
-              <div className="relative h-72 bg-muted">
-                <div className="absolute inset-0 bg-dots opacity-60" />
-                <Image
-                  src={agent.image}
-                  alt={agent.alt}
-                  fill
-                  className="object-contain p-6"
-                />
+      <motion.h2
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.6, ease }}
+        className="mb-12 max-w-2xl font-pixel text-4xl leading-[1.05] tracking-tight sm:text-5xl"
+      >
+        TWO AGENTS <span className="text-accent">//</span> ZERO TRUST
+      </motion.h2>
+
+      <div className="grid border-2 border-foreground md:grid-cols-2">
+        {agents.map((a, i) => (
+          <motion.div
+            key={a.name}
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.6, delay: i * 0.1, ease }}
+            className={`flex flex-col ${i === 0 ? "border-b-2 border-foreground md:border-b-0 md:border-r-2" : ""}`}
+          >
+            {/* image panel */}
+            <div className="dot-grid-bg relative h-64 border-b-2 border-foreground">
+              <Image src={a.img} alt={a.alt} fill className="object-contain p-5" />
+              <span className="absolute left-3 top-3 flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                <span className="h-1.5 w-1.5 bg-accent" /> ONLINE
+              </span>
+            </div>
+
+            <div className="flex flex-1 flex-col p-6">
+              {/* header row */}
+              <div className="mb-4 flex items-center gap-3">
+                <span className="font-pixel text-3xl text-accent">{a.glyph}</span>
+                <span className="font-pixel text-2xl tracking-tight">{a.name}</span>
+                <span className="ml-auto border-2 border-foreground px-2.5 py-1 text-[10px] uppercase tracking-widest">
+                  {a.role}
+                </span>
               </div>
 
-              <CardHeader>
-                <div className="flex items-center gap-3">
+              {/* mandate */}
+              <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{a.mandate}</p>
+
+              {/* bullets */}
+              <ul className="mb-6 space-y-2.5">
+                {a.bullets.map((b) => (
+                  <li key={b} className="flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
+                    <Check size={14} strokeWidth={2.5} className="mt-0.5 shrink-0 text-accent" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* primitive tags */}
+              <div className="mt-auto flex flex-wrap gap-2">
+                {a.primitives.map((p) => (
                   <span
-                    aria-hidden
-                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-xl font-semibold text-primary"
+                    key={p}
+                    className="border-2 border-foreground px-2.5 py-1 text-[10px] uppercase tracking-wider text-muted-foreground"
                   >
-                    {agent.glyph}
+                    {p}
                   </span>
-                  <CardTitle className="text-xl">{agent.name}</CardTitle>
-                  <Badge className="ml-auto">{agent.role}</Badge>
-                </div>
-              </CardHeader>
-
-              <CardContent className="flex flex-1 flex-col">
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {agent.mandate}
-                </p>
-
-                <ul className="mt-5 space-y-2">
-                  {agent.bullets.map((bullet) => (
-                    <li
-                      key={bullet}
-                      className="flex items-center gap-2 text-sm text-card-foreground"
-                    >
-                      <Check className="h-4 w-4 shrink-0 text-primary" />
-                      {bullet}
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="mt-auto flex flex-wrap gap-2 pt-6">
-                  {agent.tags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant="secondary"
-                      className="font-mono font-normal"
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        ))}
       </div>
     </section>
   )

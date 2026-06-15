@@ -1,79 +1,95 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { ShieldCheck, Layers, Database, Award } from "lucide-react"
+"use client"
 
-const layers = [
+import { motion } from "framer-motion"
+import { ShieldCheck, Boxes, Database, Award } from "lucide-react"
+
+const ease = [0.22, 1, 0.36, 1] as const
+
+const cells = [
   {
+    code: "01",
     icon: ShieldCheck,
-    title: "Move policy object",
-    description:
-      "Caps budget, protocol scope, and expiry — and the owner can revoke at any time. Safety by enforcement, not by promise.",
+    title: "MOVE POLICY OBJECT",
+    desc: "An on-chain object caps budget, scope, and expiry. The owner revokes spend authority in one transaction — no agent override.",
   },
   {
-    icon: Layers,
-    title: "Programmable Transaction Blocks",
-    description:
-      "Redeem, swap, and supply settle as one atomic transaction. It all lands or none of it does — no partial states.",
+    code: "02",
+    icon: Boxes,
+    title: "PROGRAMMABLE TRANSACTION BLOCKS",
+    desc: "A single atomic PTB chains redeem → swap → supply. Either every leg lands or none does — no half-executed positions.",
   },
   {
+    code: "03",
     icon: Database,
-    title: "Walrus",
-    description:
-      "Every decision is content-addressed and verifiable; its blobId is recorded on-chain so the reasoning stays auditable.",
+    title: "WALRUS",
+    desc: "Every decision is stored as verifiable memory on Walrus, with the blobId committed on-chain. The reasoning is auditable, not ephemeral.",
   },
   {
+    code: "04",
     icon: Award,
-    title: "On-chain reputation",
-    description:
-      "Daedalus's CriticRating settles on-chain — tamper-proof and portable, so trust compounds where anyone can read it.",
+    title: "ON-CHAIN REPUTATION",
+    desc: "Daedalus writes a tamper-proof CriticRating per decision. Agent reputation is public, permanent, and impossible to forge.",
   },
 ]
 
 export function BuiltOnSui() {
   return (
-    <section id="stack" className="py-20 lg:py-28">
-      <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        <div className="max-w-2xl">
-          <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-            Why Sui
-          </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight lg:text-4xl">
-            Built on Sui
-          </h2>
-          <p className="mt-4 text-muted-foreground">
-            Sui isn&apos;t the brain — it&apos;s what makes trusting an
-            autonomous brain with real money safe.
-          </p>
-        </div>
-
-        <div className="mt-12 grid gap-5 md:grid-cols-2">
-          {layers.map((layer) => (
-            <Card
-              key={layer.title}
-              className="rounded-2xl border border-border shadow-sm"
-            >
-              <CardHeader>
-                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <layer.icon className="h-5 w-5" />
-                </div>
-                <CardTitle className="mt-4">{layer.title}</CardTitle>
-                <CardDescription className="leading-relaxed">
-                  {layer.description}
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-
-        <p className="mt-8 font-mono text-xs text-muted-foreground">
-          agent_policy + reputation — published on Sui testnet
-        </p>
+    <section id="stack" className="w-full border-b-2 border-foreground px-6 py-20 lg:px-12">
+      {/* label row */}
+      <div className="mb-10 flex items-center gap-4">
+        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">// SECTION: SUI</span>
+        <div className="flex-1 border-t border-border" />
+        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">005</span>
       </div>
+
+      <motion.h2
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.6, ease }}
+        className="font-pixel text-4xl leading-[1.05] tracking-tight sm:text-5xl"
+      >
+        BUILT ON SUI
+      </motion.h2>
+
+      <motion.p
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.5, delay: 0.1, ease }}
+        className="mb-12 mt-6 max-w-lg text-sm leading-relaxed text-muted-foreground"
+      >
+        Sui isn&apos;t the brain — it&apos;s what makes trusting the brain with money safe.
+      </motion.p>
+
+      <div className="grid border-2 border-foreground md:grid-cols-2">
+        {cells.map((c, i) => {
+          const Icon = c.icon
+          return (
+            <motion.div
+              key={c.code}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.6, delay: i * 0.1, ease }}
+              className={`p-6 ${i % 2 === 0 ? "md:border-r-2 md:border-foreground" : ""} ${i < 2 ? "border-b-2 border-foreground" : ""}`}
+            >
+              <div className="mb-5 flex items-center justify-between">
+                <span className="flex h-10 w-10 items-center justify-center border-2 border-foreground">
+                  <Icon size={18} strokeWidth={2} className="text-accent" />
+                </span>
+                <span className="font-pixel text-lg text-accent">[{c.code}]</span>
+              </div>
+              <h3 className="mb-3 text-sm uppercase tracking-wider">{c.title}</h3>
+              <p className="text-xs leading-relaxed text-muted-foreground">{c.desc}</p>
+            </motion.div>
+          )
+        })}
+      </div>
+
+      <p className="mt-8 text-[10px] uppercase tracking-widest text-muted-foreground">
+        AGENT_POLICY + REPUTATION // PUBLISHED ON SUI TESTNET
+      </p>
     </section>
   )
 }

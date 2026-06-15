@@ -1,87 +1,76 @@
+"use client"
+
 const columns = [
   {
-    title: "Protocol",
+    title: "PROTOCOL",
     links: [
-      { label: "How it works", href: "#how-it-works" },
-      { label: "Agents", href: "#agents" },
-      { label: "Built on Sui", href: "#stack" },
-      { label: "Roadmap", href: "#roadmap" },
+      { label: "HOW IT WORKS", href: "#how-it-works" },
+      { label: "AGENTS", href: "#agents" },
+      { label: "BUILT ON SUI", href: "#stack" },
+      { label: "ROADMAP", href: "#roadmap" },
     ],
   },
   {
-    title: "Live",
+    title: "LIVE",
     links: [
-      { label: "Dashboard", href: "/dashboard" },
-      { label: "Live", href: "#live" },
+      { label: "DASHBOARD", href: "/dashboard" },
+      { label: "LIVE", href: "#live" },
     ],
   },
   {
-    title: "Build",
+    title: "BUILD",
     links: [
-      {
-        label: "GitHub",
-        href: "https://github.com/chrsnikhil",
-        external: true,
-      },
-      {
-        label: "Sui testnet",
-        href: "https://faucet.sui.io/",
-        external: true,
-      },
+      { label: "GITHUB", href: "https://github.com/chrsnikhil", external: true },
+      { label: "SUI TESTNET", href: "https://faucet.sui.io/", external: true },
     ],
   },
 ]
 
 export function Footer() {
   return (
-    <footer className="border-t border-border">
-      <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
-          <div className="max-w-xs">
-            <span className="text-lg font-semibold tracking-tight">Talos</span>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Autonomous DeFi agents on Sui, bounded by an on-chain policy.
-            </p>
-          </div>
-
-          {columns.map((column) => (
-            <div key={column.title}>
-              <h3 className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                {column.title}
-              </h3>
-              <ul className="mt-4 space-y-3">
-                {column.links.map((link) => (
-                  <li key={link.label}>
-                    <a
-                      href={link.href}
-                      {...(link.external
-                        ? { target: "_blank", rel: "noreferrer" }
-                        : {})}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-border pt-8 sm:flex-row sm:items-center">
-          <p className="font-mono text-xs text-muted-foreground">
-            Talos — Sui Overflow 2026 · Agentic Web
+    <footer className="w-full border-t-2 border-foreground">
+      <div className="grid grid-cols-1 lg:grid-cols-4">
+        {/* brand */}
+        <div className="border-b-2 border-foreground px-6 py-12 lg:border-b-0 lg:border-r-2 lg:px-12">
+          <span className="font-pixel text-2xl tracking-tight">TALOS</span>
+          <p className="mt-4 max-w-xs text-[11px] uppercase leading-relaxed tracking-wider text-muted-foreground">
+            AUTONOMOUS DEFI AGENTS ON SUI // BOUNDED BY AN ON-CHAIN POLICY
           </p>
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500/60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-            </span>
-            <span className="font-mono text-xs text-muted-foreground">
-              Agents live on testnet
-            </span>
-          </div>
         </div>
+
+        {/* link columns */}
+        {columns.map((column, i) => (
+          <div
+            key={column.title}
+            className={`border-b-2 border-foreground px-6 py-12 lg:border-b-0 lg:px-8 ${i < 2 ? "lg:border-r-2" : ""}`}
+          >
+            <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground">{column.title}</h3>
+            <ul className="mt-5 space-y-3">
+              {column.links.map((link) => (
+                <li key={link.label}>
+                  <a
+                    href={link.href}
+                    {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                    className="text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      {/* bottom bar */}
+      <div className="flex flex-col items-start justify-between gap-4 border-t-2 border-foreground px-6 py-5 sm:flex-row sm:items-center lg:px-12">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          TALOS // SUI OVERFLOW 2026 // AGENTIC WEB
+        </p>
+        <p className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <span className="h-1.5 w-1.5 animate-blink bg-accent" />
+          AGENTS LIVE ON TESTNET
+        </p>
       </div>
     </footer>
   )

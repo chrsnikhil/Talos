@@ -1,48 +1,64 @@
-import { Button } from "@/components/ui/button"
+"use client"
+
+import { motion } from "framer-motion"
 import { ArrowRight, Github } from "lucide-react"
+
+const ease = [0.22, 1, 0.36, 1] as const
 
 export function Cta() {
   return (
-    <section id="cta" className="py-20 lg:py-28">
-      <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        <div className="relative overflow-hidden rounded-2xl bg-primary px-6 py-16 text-center text-primary-foreground shadow-sm lg:px-8 lg:py-20">
+    <section id="cta" className="w-full border-b-2 border-foreground px-6 py-20 lg:px-12">
+      {/* label row */}
+      <div className="mb-10 flex items-center gap-4">
+        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">// SECTION: LAUNCH</span>
+        <div className="flex-1 border-t border-border" />
+        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">008</span>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.6, ease }}
+        className="border-2 border-foreground bg-foreground text-background"
+      >
+        <div className="flex items-center justify-between border-b-2 border-background/30 px-5 py-2 text-[10px] uppercase tracking-widest text-background/70">
+          <span>TALOS://LIVE</span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 bg-accent" /> SUI TESTNET
+          </span>
+        </div>
+
+        <div className="px-6 py-20 text-center lg:px-8 lg:py-24">
           <div className="mx-auto max-w-2xl">
-            <p className="font-mono text-xs uppercase tracking-wider text-primary-foreground/70">
-              Live on Sui testnet
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight lg:text-4xl">
-              Watch the agents run on-chain
+            <h2 className="font-pixel text-4xl leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+              WATCH THE<br />AGENTS <span className="text-accent">RUN.</span>
             </h2>
-            <p className="mt-4 text-primary-foreground/80">
-              See Icarus rebalance real USDC under a Move policy, every decision logged to Walrus
-              and graded by Daedalus — all in real time.
+            <p className="mx-auto mt-8 max-w-md text-sm leading-relaxed text-background/70">
+              See Icarus rebalance real USDC under a Move policy — every decision logged to Walrus
+              and graded by Daedalus, in real time.
             </p>
 
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <a href="/dashboard">
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="group rounded-full bg-primary-foreground px-6 text-primary hover:bg-primary-foreground/90"
-                >
-                  Launch dashboard
-                  <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </Button>
+            <div className="mt-10 flex flex-wrap items-stretch justify-center gap-3">
+              <a href="/dashboard" className="group flex items-stretch bg-background text-foreground">
+                <span className="flex w-10 items-center justify-center bg-accent">
+                  <ArrowRight size={16} strokeWidth={2} className="text-background transition-transform group-hover:translate-x-0.5" />
+                </span>
+                <span className="px-5 py-3 text-[11px] uppercase tracking-wider">Launch Dashboard</span>
               </a>
-              <a href="https://github.com/chrsnikhil" target="_blank" rel="noreferrer">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="rounded-full border-primary-foreground/30 bg-transparent px-6 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-                >
-                  <Github className="mr-1 h-4 w-4" />
-                  View on GitHub
-                </Button>
+              <a
+                href="https://github.com/chrsnikhil"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 border-2 border-background bg-background px-5 py-3 text-[11px] uppercase tracking-wider text-foreground transition-colors hover:bg-transparent hover:text-background"
+              >
+                <Github size={14} strokeWidth={2} />
+                View on GitHub
               </a>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </section>
   )
 }

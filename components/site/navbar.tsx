@@ -1,79 +1,89 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Github, Menu, X } from "lucide-react"
+import { ArrowRight, Menu, X } from "lucide-react"
 
 const links = [
-  { name: "How it works", href: "#how-it-works" },
-  { name: "Agents", href: "#agents" },
-  { name: "Built on Sui", href: "#stack" },
-  { name: "Live", href: "#live" },
-  { name: "Roadmap", href: "#roadmap" },
+  { name: "HOW IT WORKS", href: "#how-it-works" },
+  { name: "AGENTS", href: "#agents" },
+  { name: "BUILT ON SUI", href: "#stack" },
+  { name: "LIVE", href: "#live" },
+  { name: "ROADMAP", href: "#roadmap" },
 ]
 
 export function Navbar() {
-  const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12)
+    const onScroll = () => setScrolled(window.scrollY > 8)
     window.addEventListener("scroll", onScroll)
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
-        scrolled ? "border-b border-border bg-background/80 backdrop-blur-xl" : "border-b border-transparent"
+      className={`fixed inset-x-0 top-0 z-50 border-b-2 border-foreground transition-colors ${
+        scrolled ? "bg-background" : "bg-background/90 backdrop-blur"
       }`}
     >
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8">
-        <a href="#" className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground font-mono text-sm font-bold">
-            Τ
-          </span>
-          <span className="text-lg font-semibold tracking-tight">Talos</span>
+      <nav className="flex items-stretch justify-between">
+        <a href="#" className="flex items-center gap-2 border-r-2 border-foreground px-5 py-4">
+          <span className="font-pixel text-xl tracking-tight">TALOS</span>
+          <span className="text-[10px] tracking-widest text-muted-foreground">/SUI</span>
         </a>
 
-        <div className="hidden items-center gap-8 md:flex">
+        <div className="hidden flex-1 items-stretch lg:flex">
           {links.map((l) => (
-            <a key={l.name} href={l.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            <a
+              key={l.name}
+              href={l.href}
+              className="flex items-center border-r-2 border-border px-5 text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:bg-foreground hover:text-background"
+            >
               {l.name}
             </a>
           ))}
         </div>
 
-        <div className="hidden items-center gap-2 md:flex">
-          <a href="https://github.com/chrsnikhil" target="_blank" rel="noopener noreferrer">
-            <Button variant="ghost" size="icon" aria-label="GitHub">
-              <Github className="h-4 w-4" />
-            </Button>
+        <div className="flex items-stretch">
+          <a
+            href="https://github.com/chrsnikhil"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden items-center border-l-2 border-foreground px-5 text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground md:flex"
+          >
+            GITHUB
           </a>
-          <a href="/dashboard">
-            <Button size="sm" className="rounded-full px-5">
-              Launch dashboard
-            </Button>
+          <a href="/dashboard" className="group hidden items-center bg-foreground text-background md:flex">
+            <span className="flex h-full w-10 items-center justify-center bg-accent">
+              <ArrowRight size={16} strokeWidth={2} className="text-background transition-transform group-hover:translate-x-0.5" />
+            </span>
+            <span className="px-5 text-[11px] uppercase tracking-wider">Launch Dashboard</span>
           </a>
+          <button className="border-l-2 border-foreground px-4 lg:hidden" onClick={() => setOpen(!open)} aria-label="Menu">
+            {open ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
-
-        <button className="md:hidden" onClick={() => setOpen(!open)} aria-label="Menu">
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
       </nav>
 
       {open && (
-        <div className="border-t border-border bg-background px-5 py-4 md:hidden">
-          <div className="flex flex-col gap-3">
-            {links.map((l) => (
-              <a key={l.name} href={l.href} onClick={() => setOpen(false)} className="py-1 text-sm text-muted-foreground hover:text-foreground">
-                {l.name}
-              </a>
-            ))}
-            <a href="/dashboard" onClick={() => setOpen(false)} className="mt-2">
-              <Button className="w-full rounded-full">Launch dashboard</Button>
+        <div className="border-t-2 border-foreground bg-background lg:hidden">
+          {links.map((l) => (
+            <a
+              key={l.name}
+              href={l.href}
+              onClick={() => setOpen(false)}
+              className="block border-b-2 border-border px-5 py-3 text-[11px] uppercase tracking-wider text-muted-foreground hover:bg-foreground hover:text-background"
+            >
+              {l.name}
             </a>
-          </div>
+          ))}
+          <a href="/dashboard" onClick={() => setOpen(false)} className="group flex items-center bg-foreground text-background">
+            <span className="flex h-10 w-10 items-center justify-center bg-accent">
+              <ArrowRight size={16} className="text-background" />
+            </span>
+            <span className="px-5 text-[11px] uppercase tracking-wider">Launch Dashboard</span>
+          </a>
         </div>
       )}
     </header>
