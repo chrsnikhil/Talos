@@ -1,9 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { ArrowUpRight, ArrowLeft } from "lucide-react"
+import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
 const EXPLORER = "https://suiscan.xyz/testnet"
+const ACCENT = "#3b97fb"
+const GRID = "#2e3440"
+const TICK = "#8a93a6"
 
 type Policy = {
   network: string
@@ -60,7 +64,32 @@ function evDetail(e: Ev): string {
   }
 }
 
-function Cell({ label, value, accent }: { label: string; value: React.ReactNode; accent?: boolean }) {
+const TABS = ["OVERVIEW", "ACTIVITY", "POLICY", "REPUTATION"] as const
+type Tab = (typeof TABS)[number]
+
+function ChartTip({ active, payload, label, unit }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="border-2 border-foreground bg-background px-3 py-2 text-[10px] uppercase tracking-widest">
+      <div className="text-muted-foreground">{label}</div>
+      <div className="text-accent">
+        {payload[0].value}
+        {unit}
+      </div>
+    </div>
+  )
+}
+
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border-2 border-foreground">
+      <div className="border-b-2 border-foreground px-5 py-2.5 text-[11px] uppercase tracking-widest">{title}</div>
+      {children}
+    </div>
+  )
+}
+
+function Stat({ label, value, accent }: { label: string; value: React.ReactNode; accent?: boolean }) {
   return (
     <div className="px-5 py-6">
       <div className={`font-pixel text-3xl ${accent ? "text-accent" : ""}`}>{value}</div>
@@ -74,6 +103,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<Ev[]>([])
   const [rep, setRep] = useState<{ total: number; avg: number } | null>(null)
   const [updated, setUpdated] = useState<Date | null>(null)
+  const [tab, setTab] = useState<Tab>("OVERVIEW")
 
   useEffect(() => {
     let alive = true
@@ -106,6 +136,22 @@ export default function Dashboard() {
   const budgetTotal = policy ? policy.remaining_budget + policy.total_spent : 0
   const pct = policy && budgetTotal > 0 ? Math.round((policy.remaining_budget / budgetTotal) * 100) : 100
 
+  const spends = useMemo(() => events.filter((e) => e.type === "SpendAuthorized").slice().reverse(), [events])
+  const ratings = useMemo(() => events.filter((e) => e.type === "CriticRating").slice().reverse(), [events])
+  const rebalances = spends.length
+
+  const budgetSeries = useMemo(() => {
+    const arr: { name: string; remaining: number }[] = []
+    if (policy) arr.push({ name: "init", remaining: budgetTotal })
+    spends.forEach((s, i) => arr.push({ name: `#${i + 1}`, remaining: Number(s.data.remaining) }))
+    return arr
+  }, [spends, policy, budgetTotal])
+
+  const scoreSeries = useMemo(
+    () => ratings.map((r, i) => ({ name: `#${i + 1}`, score: Number(r.data.score) })),
+    [ratings],
+  )
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       {/* top bar */}
@@ -115,55 +161,108 @@ export default function Dashboard() {
           <span className="font-pixel text-lg">TALOS</span>
           <span className="text-[10px] tracking-widest text-muted-foreground">/OPERATOR</span>
         </a>
-        <div className="flex items-center gap-2 px-5 text-[11px] uppercase tracking-widest">
-          <span className={`h-2 w-2 ${status === "ACTIVE" ? "animate-blink bg-accent" : "bg-foreground"}`} />
-          {status}
+        <div className="flex items-center gap-3 px-5 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <span className="hidden sm:inline">{updated ? `UPDATED ${updated.toLocaleTimeString()}` : "CONNECTING…"}</span>
+          <span className="flex items-center gap-2 text-foreground">
+            <span className={`h-2 w-2 ${status === "ACTIVE" ? "animate-blink bg-accent" : "bg-foreground"}`} />
+            {status}
+          </span>
         </div>
       </div>
 
-      <div className="px-6 py-10 lg:px-12">
-        {/* label row */}
-        <div className="mb-8 flex items-center gap-4">
-          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">// ICARUS: LIVE</span>
-          <div className="flex-1 border-t border-border" />
-          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            {updated ? `UPDATED ${updated.toLocaleTimeString()}` : "CONNECTING…"} // AUTO 5S
-          </span>
+      {/* tab bar */}
+      <div className="flex items-stretch overflow-x-auto border-b-2 border-foreground">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`whitespace-nowrap border-r-2 border-foreground px-5 py-3 text-[11px] uppercase tracking-widest transition-colors ${
+              tab === t ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {`// ${t}`}
+          </button>
+        ))}
+        <div className="hidden flex-1 items-center justify-end px-5 text-[10px] uppercase tracking-widest text-muted-foreground lg:flex">
+          ICARUS // DAEDALUS · SUI TESTNET
         </div>
+      </div>
 
-        <h1 className="font-pixel text-4xl lg:text-5xl">ICARUS // LIVE</h1>
-        <p className="mt-3 text-xs text-muted-foreground">
-          policy {trunc(policy?.policyId)} · agent {trunc(policy?.agent)} · testnet
-        </p>
-
-        {/* budget */}
-        <div className="mt-8 border-2 border-foreground">
-          <div className="flex items-center justify-between border-b-2 border-foreground px-5 py-2.5 text-[11px] uppercase tracking-widest">
-            <span>BUDGET LEASH</span>
-            <span className="text-muted-foreground">{pct}% REMAINING</span>
-          </div>
-          <div className="px-5 pt-5">
-            <div className="h-3 w-full border-2 border-foreground">
-              <div className="h-full bg-accent transition-all duration-700" style={{ width: `${pct}%` }} />
-            </div>
-          </div>
-          <div className="mt-2 grid grid-cols-3 divide-x-2 divide-foreground">
-            <Cell label="REMAINING" value={policy?.remaining_budget ?? "—"} accent />
-            <Cell label="PER-TX CAP" value={policy?.per_tx_cap ?? "—"} />
-            <Cell label="TOTAL SPENT" value={policy?.total_spent ?? "—"} />
-          </div>
-        </div>
-
-        <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,360px)_1fr]">
-          {/* left column */}
+      <div className="px-6 py-8 lg:px-10">
+        {/* ===== OVERVIEW ===== */}
+        {tab === "OVERVIEW" && (
           <div className="space-y-8">
-            <div className="border-2 border-foreground">
-              <div className="border-b-2 border-foreground px-5 py-2.5 text-[11px] uppercase tracking-widest">POLICY</div>
+            <div className="grid grid-cols-2 border-2 border-foreground sm:grid-cols-3 lg:grid-cols-6 [&>*]:border-b-2 [&>*]:border-r-2 [&>*]:border-border">
+              <Stat label="REMAINING" value={policy?.remaining_budget ?? "—"} accent />
+              <Stat label="TOTAL SPENT" value={policy?.total_spent ?? "—"} />
+              <Stat label="PER-TX CAP" value={policy?.per_tx_cap ?? "—"} />
+              <Stat label="REBALANCES" value={rebalances} />
+              <Stat label="CRITIC AVG" value={rep ? rep.avg : "—"} accent />
+              <Stat label="RATINGS" value={rep ? rep.total : "—"} />
+            </div>
+
+            <Panel title={`BUDGET LEASH // ${pct}% REMAINING`}>
+              <div className="px-5 pt-5">
+                <div className="h-3 w-full border-2 border-foreground">
+                  <div className="h-full bg-accent transition-all duration-700" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+              <div className="h-64 w-full p-4">
+                {budgetSeries.length > 1 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={budgetSeries} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
+                      <defs>
+                        <linearGradient id="bud" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={ACCENT} stopOpacity={0.4} />
+                          <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke={GRID} vertical={false} />
+                      <XAxis dataKey="name" stroke={GRID} tick={{ fill: TICK, fontSize: 10, fontFamily: "var(--font-mono)" }} />
+                      <YAxis stroke={GRID} tick={{ fill: TICK, fontSize: 10, fontFamily: "var(--font-mono)" }} width={56} />
+                      <Tooltip content={<ChartTip />} cursor={{ stroke: ACCENT, strokeOpacity: 0.3 }} />
+                      <Area type="stepAfter" dataKey="remaining" stroke={ACCENT} strokeWidth={2} fill="url(#bud)" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                    BUDGET HISTORY APPEARS AS ICARUS REBALANCES
+                  </div>
+                )}
+              </div>
+            </Panel>
+
+            <Panel title="RECENT ACTIVITY">
+              {events.slice(0, 6).map((e, i) => (
+                <ActivityRow key={e.tx + i} e={e} />
+              ))}
+              {events.length === 0 && <Empty />}
+            </Panel>
+          </div>
+        )}
+
+        {/* ===== ACTIVITY ===== */}
+        {tab === "ACTIVITY" && (
+          <Panel title={`ON-CHAIN ACTIVITY // ${events.length} EVENTS`}>
+            {events.map((e, i) => (
+              <ActivityRow key={e.tx + i} e={e} />
+            ))}
+            {events.length === 0 && <Empty />}
+          </Panel>
+        )}
+
+        {/* ===== POLICY ===== */}
+        {tab === "POLICY" && (
+          <div className="grid items-start gap-8 lg:grid-cols-2">
+            <Panel title="AGENT POLICY // THE ON-CHAIN LEASH">
               {[
                 { k: "STATUS", v: status },
                 { k: "OWNER", v: trunc(policy?.owner) },
                 { k: "AGENT", v: trunc(policy?.agent) },
-                { k: "EXPIRES", v: policy ? new Date(policy.expires_at_ms).toLocaleDateString() : "—" },
+                { k: "REMAINING BUDGET", v: policy?.remaining_budget ?? "—" },
+                { k: "PER-TX CAP", v: policy?.per_tx_cap ?? "—" },
+                { k: "TOTAL SPENT", v: policy?.total_spent ?? "—" },
+                { k: "EXPIRES", v: policy ? new Date(policy.expires_at_ms).toLocaleString() : "—" },
               ].map((row) => (
                 <div key={row.k} className="flex items-center justify-between border-b border-border px-5 py-3 text-xs">
                   <span className="uppercase tracking-widest text-muted-foreground">{row.k}</span>
@@ -181,46 +280,100 @@ export default function Dashboard() {
               </div>
               <a href={`${EXPLORER}/object/${policy?.policyId ?? ""}`} target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 border-t-2 border-foreground px-5 py-3 text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-foreground hover:text-background">
-                VIEW ON EXPLORER <ArrowUpRight size={14} />
+                VIEW POLICY ON EXPLORER <ArrowUpRight size={14} />
               </a>
+            </Panel>
+
+            <Panel title="ENFORCEMENT">
+              <div className="space-y-4 p-5 text-xs leading-relaxed text-muted-foreground">
+                <p>
+                  The agent decides off-chain — but it can only ever spend what this Move policy object permits. Every
+                  bound below is checked <span className="text-foreground">on-chain</span>; a violation aborts the
+                  transaction.
+                </p>
+                {[
+                  ["BUDGET CEILING", "per-tx cap + remaining budget, decremented on every spend"],
+                  ["PROTOCOL SCOPE", "an allowlist — anything off-list is rejected"],
+                  ["EXPIRY", "expires_at_ms checked against the on-chain clock"],
+                  ["OWNER REVOCATION", "the OwnerCap flips revoked = true; the next spend aborts"],
+                ].map(([k, d]) => (
+                  <div key={k} className="flex gap-3">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 bg-accent" />
+                    <div>
+                      <div className="uppercase tracking-widest text-foreground">{k}</div>
+                      <div>{d}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          </div>
+        )}
+
+        {/* ===== REPUTATION ===== */}
+        {tab === "REPUTATION" && (
+          <div className="space-y-8">
+            <div className="grid grid-cols-2 border-2 border-foreground [&>*]:border-r-2 [&>*]:border-border">
+              <Stat label="AVG SCORE /100" value={rep ? rep.avg : "—"} accent />
+              <Stat label="TOTAL RATINGS" value={rep ? rep.total : "—"} />
             </div>
 
-            <div className="border-2 border-foreground">
-              <div className="border-b-2 border-foreground px-5 py-2.5 text-[11px] uppercase tracking-widest">DAEDALUS // REPUTATION</div>
-              <div className="grid grid-cols-2 divide-x-2 divide-foreground">
-                <div className="px-5 py-7 text-center">
-                  <div className="font-pixel text-4xl text-accent">{rep ? rep.avg : "—"}</div>
-                  <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">AVG /100</div>
-                </div>
-                <div className="px-5 py-7 text-center">
-                  <div className="font-pixel text-4xl">{rep ? rep.total : "—"}</div>
-                  <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">RATINGS</div>
-                </div>
+            <Panel title="DAEDALUS // CRITIC SCORES">
+              <div className="h-64 w-full p-4">
+                {scoreSeries.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={scoreSeries} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+                      <CartesianGrid stroke={GRID} vertical={false} />
+                      <XAxis dataKey="name" stroke={GRID} tick={{ fill: TICK, fontSize: 10, fontFamily: "var(--font-mono)" }} />
+                      <YAxis domain={[0, 100]} stroke={GRID} tick={{ fill: TICK, fontSize: 10, fontFamily: "var(--font-mono)" }} width={40} />
+                      <Tooltip content={<ChartTip unit="/100" />} cursor={{ stroke: ACCENT, strokeOpacity: 0.3 }} />
+                      <Line type="linear" dataKey="score" stroke={ACCENT} strokeWidth={2} dot={{ fill: ACCENT, r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                    RATINGS APPEAR AS DAEDALUS JUDGES ICARUS
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
+            </Panel>
 
-          {/* activity feed */}
-          <div className="border-2 border-foreground">
-            <div className="border-b-2 border-foreground px-5 py-2.5 text-[11px] uppercase tracking-widest">ON-CHAIN ACTIVITY</div>
-            {events.length === 0 && (
-              <div className="px-5 py-12 text-center text-xs text-muted-foreground">
-                NO EVENTS YET — RUN THE ICARUS RUNTIME TO SEE LIVE REBALANCES.
-              </div>
-            )}
-            {events.map((e, i) => (
-              <div key={e.tx + i} className="flex items-center gap-4 border-b border-border px-5 py-3">
-                <span className="shrink-0 border border-foreground px-2 py-1 text-[9px] uppercase tracking-wider text-accent">{LABEL[e.type] ?? e.type}</span>
-                <span className="flex-1 truncate text-xs text-muted-foreground">{evDetail(e)}</span>
-                <span className="hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">{ago(e.timestampMs)}</span>
-                <a href={`${EXPLORER}/tx/${e.tx}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" title="View tx">
-                  <ArrowUpRight size={14} />
-                </a>
-              </div>
-            ))}
+            <Panel title="RATINGS LOG">
+              {ratings.length === 0 && <Empty />}
+              {ratings
+                .slice()
+                .reverse()
+                .map((e, i) => (
+                  <div key={e.tx + i} className="flex items-center gap-4 border-b border-border px-5 py-3">
+                    <span className="font-pixel text-lg text-accent">{e.data.score}</span>
+                    <span className="flex-1 truncate text-xs text-muted-foreground">{e.data.verdict} · re {String(e.data.ref_tx ?? "").slice(0, 8)}…</span>
+                    <span className="hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">{ago(e.timestampMs)}</span>
+                    <a href={`${EXPLORER}/tx/${e.tx}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+                      <ArrowUpRight size={14} />
+                    </a>
+                  </div>
+                ))}
+            </Panel>
           </div>
-        </div>
+        )}
       </div>
     </main>
   )
+}
+
+function ActivityRow({ e }: { e: Ev }) {
+  return (
+    <div className="flex items-center gap-4 border-b border-border px-5 py-3">
+      <span className="shrink-0 border border-foreground px-2 py-1 text-[9px] uppercase tracking-wider text-accent">{LABEL[e.type] ?? e.type}</span>
+      <span className="flex-1 truncate text-xs text-muted-foreground">{evDetail(e)}</span>
+      <span className="hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">{ago(e.timestampMs)}</span>
+      <a href={`${EXPLORER}/tx/${e.tx}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" title="View tx">
+        <ArrowUpRight size={14} />
+      </a>
+    </div>
+  )
+}
+
+function Empty() {
+  return <div className="px-5 py-12 text-center text-xs text-muted-foreground">NO EVENTS YET — RUN THE ICARUS RUNTIME.</div>
 }
