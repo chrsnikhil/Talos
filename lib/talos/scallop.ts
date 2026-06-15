@@ -1,8 +1,13 @@
+import { SuiClient } from "@mysten/sui/client"
 import { Scallop } from "@scallop-io/sui-scallop-sdk"
-import { client, keypair, AGENT_ADDRESS } from "./config"
+import { keypair, AGENT_ADDRESS } from "./config"
 
 // Real lending on Scallop (Sui MAINNET only). Read APY works without funds;
 // deposit/withdraw move real USDC and require the mainnet address to hold USDC + SUI.
+// NOTE: Scallop is mainnet — execute against a mainnet client, not the testnet one.
+const MAINNET_RPC = process.env.SUI_MAINNET_RPC || "https://fullnode.mainnet.sui.io:443"
+export const mainnetClient = new SuiClient({ url: MAINNET_RPC })
+
 let scallop: Scallop | null = null
 function sdk(): Scallop {
   if (!scallop) scallop = new Scallop({ networkType: "mainnet" })
@@ -29,12 +34,12 @@ export async function depositUsdc(amountUsdc: number): Promise<{ digest: string;
   const tx = builder.createTxBlock()
   tx.setSender(AGENT_ADDRESS)
   await tx.depositQuick(Math.round(amountUsdc * 1e6), "usdc")
-  const res = await client.signAndExecuteTransaction({
+  const res = await mainnetClient.signAndExecuteTransaction({
     signer: keypair,
     transaction: tx.txBlock as any,
     options: { showEffects: true },
   })
-  await client.waitForTransaction({ digest: res.digest })
+  await mainnetClient.waitForTransaction({ digest: res.digest })
   return { digest: res.digest, status: res.effects?.status?.status }
 }
 
@@ -44,12 +49,12 @@ export async function withdrawUsdc(amountUsdc: number): Promise<{ digest: string
   const tx = builder.createTxBlock()
   tx.setSender(AGENT_ADDRESS)
   await tx.withdrawQuick(Math.round(amountUsdc * 1e6), "usdc")
-  const res = await client.signAndExecuteTransaction({
+  const res = await mainnetClient.signAndExecuteTransaction({
     signer: keypair,
     transaction: tx.txBlock as any,
     options: { showEffects: true },
   })
-  await client.waitForTransaction({ digest: res.digest })
+  await mainnetClient.waitForTransaction({ digest: res.digest })
   return { digest: res.digest, status: res.effects?.status?.status }
 }
 
