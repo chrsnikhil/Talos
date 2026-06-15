@@ -5,6 +5,7 @@ import { ArrowUpRight, ArrowLeft } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
 const EXPLORER = "https://suiscan.xyz/mainnet"
+const WALRUS = "https://aggregator.walrus-testnet.walrus.space/v1/blobs"
 const ACCENT = "#3b97fb"
 const GRID = "#2e3440"
 const TICK = "#8a93a6"
@@ -31,6 +32,21 @@ type Swarm = {
   provider?: string
   model?: string
   intervalMs?: number
+}
+type Apy = { protocol: string; apy: number }
+type Decision = {
+  n: number
+  ts: string
+  apys: Apy[]
+  from: string
+  action: "HOLD" | "REBALANCE" | string
+  target: string
+  amount: number
+  reasoning: string
+  by: string
+  status?: string
+  txDigest?: string | null
+  blobId?: string | null
 }
 
 const trunc = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "—")
@@ -73,7 +89,7 @@ function evDetail(e: Ev): string {
   }
 }
 
-const TABS = ["OVERVIEW", "ACTIVITY", "POLICY", "REPUTATION"] as const
+const TABS = ["OVERVIEW", "THOUGHTS", "ACTIVITY", "POLICY", "REPUTATION"] as const
 type Tab = (typeof TABS)[number]
 
 function ChartTip({ active, payload, label, unit }: any) {
@@ -112,6 +128,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<Ev[]>([])
   const [rep, setRep] = useState<{ total: number; avg: number } | null>(null)
   const [swarm, setSwarm] = useState<Swarm | null>(null)
+  const [decisions, setDecisions] = useState<Decision[]>([])
   const [updated, setUpdated] = useState<Date | null>(null)
   const [tab, setTab] = useState<Tab>("OVERVIEW")
 
@@ -119,17 +136,19 @@ export default function Dashboard() {
     let alive = true
     async function tick() {
       try {
-        const [p, a, rp, sw] = await Promise.all([
+        const [p, a, rp, sw, dc] = await Promise.all([
           fetch("/api/talos/policy", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/activity", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/reputation", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/swarm", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+          fetch("/api/talos/decisions", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
         ])
         if (!alive) return
         if (!p.error) setPolicy(p)
         setEvents(a.events || [])
         if (!rp.error) setRep(rp)
         if (sw && !sw.error) setSwarm(sw)
+        if (dc && !dc.error) setDecisions(dc.decisions || [])
         setUpdated(new Date())
       } catch {
         /* keep last good state */
@@ -206,6 +225,8 @@ export default function Dashboard() {
           <div className="space-y-8">
             <SwarmHeartbeat swarm={swarm} />
 
+            <ThoughtsFeed decisions={decisions.slice(0, 5)} live={Boolean(swarm?.active)} compact />
+
             <div className="grid grid-cols-2 border-2 border-border sm:grid-cols-3 lg:grid-cols-6 [&>*]:border-b-2 [&>*]:border-r-2 [&>*]:border-border">
               <Stat label="REMAINING" value={policy?.remaining_budget ?? "—"} accent />
               <Stat label="TOTAL SPENT" value={policy?.total_spent ?? "—"} />
@@ -254,6 +275,9 @@ export default function Dashboard() {
             </Panel>
           </div>
         )}
+
+        {/* ===== THOUGHTS ===== */}
+        {tab === "THOUGHTS" && <ThoughtsFeed decisions={decisions} live={Boolean(swarm?.active)} />}
 
         {/* ===== ACTIVITY ===== */}
         {tab === "ACTIVITY" && (
@@ -416,6 +440,102 @@ function SwarmHeartbeat({ swarm }: { swarm: Swarm | null }) {
           <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">INTERVAL</div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function ThoughtsFeed({ decisions, live, compact }: { decisions: Decision[]; live: boolean; compact?: boolean }) {
+  const title = compact ? "AGENT THOUGHTS // LIVE STREAM" : `AGENT THOUGHTS // ${decisions.length} TICKS`
+  return (
+    <div className="border-2 border-border">
+      <div className="flex items-center justify-between border-b-2 border-border px-5 py-2.5">
+        <span className="text-[11px] uppercase tracking-widest">{title}</span>
+        <span className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <span className={`h-2 w-2 ${live ? "animate-blink bg-accent" : "bg-muted-foreground"}`} />
+          ICARUS · {live ? "THINKING" : "IDLE"}
+        </span>
+      </div>
+      {decisions.length === 0 && (
+        <div className="px-5 py-12 text-center text-xs text-muted-foreground">
+          NO DECISIONS YET — ICARUS LOGS A THOUGHT EVERY TICK.
+        </div>
+      )}
+      {decisions.map((d) => (
+        <ThoughtRow key={`${d.n}-${d.ts}`} d={d} />
+      ))}
+    </div>
+  )
+}
+
+function ThoughtRow({ d }: { d: Decision }) {
+  const rebalance = d.action === "REBALANCE"
+  const best = [...(d.apys ?? [])].sort((a, b) => b.apy - a.apy)[0]?.protocol
+  return (
+    <div className="border-b border-border px-5 py-4">
+      <div className="flex items-center gap-3">
+        <span className="shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground">#{d.n}</span>
+        <span
+          className={`shrink-0 border px-2 py-1 text-[9px] uppercase tracking-wider ${
+            rebalance ? "border-accent text-accent" : "border-border text-muted-foreground"
+          }`}
+        >
+          {d.action}
+        </span>
+        {rebalance && (
+          <span className="shrink-0 text-[10px] uppercase tracking-widest text-accent">
+            {d.amount} · {d.from} → {d.target}
+          </span>
+        )}
+        <span className="ml-auto shrink-0 border border-border px-2 py-1 text-[9px] uppercase tracking-wider text-muted-foreground">
+          {d.by}
+        </span>
+        <span className="hidden shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">
+          {ago(Date.parse(d.ts))}
+        </span>
+      </div>
+
+      {/* live APY survey — the numbers the decision was grounded on */}
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        {(d.apys ?? []).map((a) => {
+          const isPos = a.protocol === d.target
+          const isBest = a.protocol === best
+          return (
+            <span
+              key={a.protocol}
+              className={`border px-2 py-1 text-[10px] uppercase tracking-wider ${
+                isPos ? "border-accent text-accent" : isBest ? "border-foreground text-foreground" : "border-border text-muted-foreground"
+              }`}
+            >
+              {a.protocol} {a.apy}%{isPos ? " ◀" : ""}
+            </span>
+          )
+        })}
+      </div>
+
+      {/* the reasoning — what makes this a "thought" and not just an event */}
+      {d.reasoning && (
+        <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
+          <span className="text-foreground">↳ </span>
+          {d.reasoning}
+        </p>
+      )}
+
+      {(d.blobId || d.txDigest) && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-4 text-[10px] uppercase tracking-widest">
+          {d.txDigest && (
+            <a href={`${EXPLORER}/tx/${d.txDigest}`} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
+              ON-CHAIN TX <ArrowUpRight size={12} />
+            </a>
+          )}
+          {d.blobId && (
+            <a href={`${WALRUS}/${d.blobId}`} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground" title="Decision record on Walrus">
+              WALRUS MEMORY <ArrowUpRight size={12} />
+            </a>
+          )}
+        </div>
+      )}
     </div>
   )
 }
