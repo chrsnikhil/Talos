@@ -3,6 +3,7 @@ import { readPolicy, authorizeSpend } from "./chain"
 import { getApys } from "./yields"
 import { decide, decideWithClaude } from "./decide"
 import { storeDecision } from "./walrus"
+import { placeRealOrder, deepbookEnabled } from "./deepbook"
 
 const CHUNK = Number(process.env.TALOS_CHUNK ?? 100) // size of a single rebalance, in budget units
 
@@ -30,6 +31,7 @@ export async function runCycle(n: number): Promise<void> {
 
   let digest: string | null = null
   let status: string | undefined
+  let deepbookDigest: string | null = null
   if (decision.action === "REBALANCE" && decision.amount > 0) {
     try {
       const r = await authorizeSpend(decision.amount, decision.target)
@@ -38,6 +40,21 @@ export async function runCycle(n: number): Promise<void> {
       if (status === "success") {
         current = decision.target
         console.log(`   ✓ on-chain authorize_spend ${digest}  (remaining ≈ ${policy.remaining_budget - decision.amount})`)
+
+        // swap leg: place a real DeepBook order on-chain
+        if (deepbookEnabled()) {
+          try {
+            const o = await placeRealOrder()
+            if (o?.status === "success") {
+              deepbookDigest = o.digest
+              console.log(`   ✓ real DeepBook order ${o.digest}  (swap leg)`)
+            } else if (o) {
+              console.log(`   ✗ DeepBook order status: ${o.status}`)
+            }
+          } catch (e: any) {
+            console.log(`   ✗ DeepBook order failed: ${String(e?.message ?? e).split("\n")[0]}`)
+          }
+        }
       } else {
         console.log(`   ✗ on-chain status: ${status}`)
       }
@@ -46,6 +63,6 @@ export async function runCycle(n: number): Promise<void> {
     }
   }
 
-  const blobId = await storeDecision({ ts, agent: AGENT_ADDRESS, apys, decision, txDigest: digest, status })
+  const blobId = await storeDecision({ ts, agent: AGENT_ADDRESS, apys, decision, txDigest: digest, deepbookDigest, status })
   if (blobId) console.log(`   ↳ decision stored on Walrus: ${blobId}`)
 }

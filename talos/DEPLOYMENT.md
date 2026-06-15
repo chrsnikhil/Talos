@@ -38,3 +38,17 @@ pnpm tsx scripts/run-icarus.ts     # Icarus: autonomous on-chain rebalances + Wa
 pnpm tsx scripts/run-daedalus.ts   # Daedalus: judges Icarus, writes CriticRating on-chain
 # dashboard: /dashboard (polls policy + activity + reputation live)
 ```
+
+## Real DeepBook v3 orders (testnet) — the "swap leg"
+
+Icarus now places **real on-chain DeepBook v3 orders** as part of each rebalance (satisfies the Agentic Web Sub-track 2 "real DeepBook orders" must-have). Uses `@mysten/deepbook-v3@0.28.3` on the whitelisted `DEEP_SUI` testnet pool (0% fee, no DEEP token needed) backed by a funded BalanceManager.
+
+| Item | Value |
+| --- | --- |
+| BalanceManager | `0x3b086bcd88bd588bec2356bd2916991775b5484c494423498779f34fe4a0bbed` |
+| Pool | `DEEP_SUI` (whitelisted, testnet) — tick 0.00001, lot 1, minSize 10 |
+| Sample order txs | `3hwuB3xycsBxcLGyfcJ77fDmGJ41XwAgdq5R8YpLWU2Y`, `3RkLGbuwdVVLVUSb8vCTQujLRkQxJg9PY5UBVB2yHyVm`, `2ByhGDkXq5JcZo59iGipKL5T7gGk5Y94kjmEbAKx5Rq5` |
+
+Each autonomous rebalance cycle: `agent_policy::authorize_spend` (policy-gated) → real DeepBook `placeLimitOrder` (swap leg) → decision logged to Walrus. Setup: `pnpm tsx scripts/setup-deepbook.ts`.
+
+> Real lending (move actual USDC for yield) requires **mainnet**: Suilend is mainnet-only (SDK needs sui 1.42/2.x); Scallop is mainnet-only too but its SDK is `@mysten/sui@1.45.2`-compatible — the planned path for mainnet redeploy.
