@@ -1,0 +1,731 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+html { scroll-behavior: smooth; }
+
+@custom-variant dark (&:is(.dark *));
+
+/* ===== THEME TOKENS (Neobrutalism) ===== */
+:root {
+  --t-bg: #ffffff;
+  --t-bg-card: #ffffff;
+  --t-bg-dark: #0B0B0B;
+  --t-text: #0B0B0B;
+  --t-text-muted: #393939;
+  --t-text-on-dark: #ffffff;
+  --t-text-on-dark-muted: #a0a0a0;
+
+  --t-border-width: 3px;
+  --t-border-color: #000000;
+  --t-border-radius: 32px;
+  --t-border-radius-sm: 16px;
+  --t-border-radius-pill: 9999px;
+
+  --t-shadow: 10px 10px 0px 0px rgba(0,0,0,1);
+  --t-shadow-sm: 6px 6px 0px 0px rgba(0,0,0,1);
+  --t-shadow-hover: 16px 16px 0px 0px rgba(0,0,0,1);
+  --t-shadow-btn: 6px 6px 0px 0px rgba(0,0,0,1);
+  --t-shadow-btn-hover: none;
+  --t-btn-hover-translate: 6px;
+
+  --t-accent-1: #FF6B7A;
+  --t-accent-2: #2F81F7;
+  --t-accent-3: #FFC224;
+  --t-accent-4: #6366F1;
+  --t-accent-5: #4ADE80;
+
+  --t-nav-bg: #ffffff;
+  --t-nav-shadow: 6px 6px 0px 0px rgba(0,0,0,1);
+  --t-nav-shadow-hover: 8px 8px 0px 0px rgba(0,0,0,1);
+
+  --t-font-heading: "Onest", "Onest Fallback", system-ui, sans-serif;
+  --t-font-body: "Onest", "Onest Fallback", system-ui, sans-serif;
+  --t-heading-weight: 700;
+
+  --t-marquee-bg: #000000;
+  --t-marquee-text: #ffffff;
+  --t-marquee-rotate: -5deg;
+
+  --t-exp-card-bg: #ffffff;
+  --t-exp-section-bg: #000000;
+}
+
+/* ===== SHADCN THEME TOKENS (for UI primitives) ===== */
+:root {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #0a0a0a;
+  --primary-foreground: #fafafa;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #171717;
+  --muted: #f5f5f5;
+  --muted-foreground: #717171;
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --destructive: #e7000b;
+  --destructive-foreground: #f5f5f5;
+  --border: #0a0a0a;
+  --input: #ffffff;
+  --ring: #a1a1a1;
+  --chart-1: #737373;
+  --chart-2: #737373;
+  --chart-3: #737373;
+  --chart-4: #737373;
+  --chart-5: #737373;
+  --radius: 1rem;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #0a0a0a;
+  --sidebar-primary: #171717;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: #171717;
+  --sidebar-border: #e5e5e5;
+  --sidebar-ring: #a1a1a1;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #191919;
+  --card-foreground: #fafafa;
+  --popover: #262626;
+  --popover-foreground: #fafafa;
+  --primary: #737373;
+  --primary-foreground: #fafafa;
+  --secondary: #262626;
+  --secondary-foreground: #fafafa;
+  --muted: #262626;
+  --muted-foreground: #a1a1a1;
+  --accent: #404040;
+  --accent-foreground: #fafafa;
+  --destructive: #ff6467;
+  --destructive-foreground: #262626;
+  --border: #383838;
+  --input: #525252;
+  --ring: #737373;
+  --chart-1: #737373;
+  --chart-2: #737373;
+  --chart-3: #737373;
+  --chart-4: #737373;
+  --chart-5: #737373;
+  --sidebar: #171717;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #fafafa;
+  --sidebar-primary-foreground: #171717;
+  --sidebar-accent: #262626;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #ffffff;
+  --sidebar-ring: #525252;
+}
+
+@theme inline {
+  --font-sans: "Onest", "Onest Fallback", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "JetBrains Mono Fallback", monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Adding marquee animation for infinite scrolling logo stripe */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+/* ===== Scroll Reveal Animations ===== */
+
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.scroll-reveal[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scroll-reveal-left {
+  opacity: 0;
+  transform: translateX(-60px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.scroll-reveal-left[data-visible="true"] {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.scroll-reveal-right {
+  opacity: 0;
+  transform: translateX(60px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.scroll-reveal-right[data-visible="true"] {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.scroll-reveal-scale {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.scroll-reveal-scale[data-visible="true"] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.scroll-delay-1 { transition-delay: 100ms; }
+.scroll-delay-2 { transition-delay: 200ms; }
+.scroll-delay-3 { transition-delay: 300ms; }
+.scroll-delay-4 { transition-delay: 400ms; }
+.scroll-delay-5 { transition-delay: 500ms; }
+.scroll-delay-6 { transition-delay: 600ms; }
+
+/* ===== Neobrutalist design-system layer ===== */
+
+/* Dotted engineering-paper background. Light sections stay transparent so it
+   reads through the whole page; dark sections paint over it. */
+.nb-paper {
+  background-color: var(--t-bg);
+  background-image: radial-gradient(circle, rgba(11, 11, 11, 0.13) 1.5px, transparent 1.5px);
+  background-size: 26px 26px;
+}
+
+::selection {
+  background: var(--t-accent-3);
+  color: #0b0b0b;
+}
+
+::-webkit-scrollbar { width: 14px; }
+::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-left: 3px solid #000000;
+}
+::-webkit-scrollbar-thumb {
+  background: #0b0b0b;
+  border: 3px solid #ffffff;
+  border-radius: 9999px;
+}
+
+/* Sticker-style heading highlight */
+.nb-highlight {
+  display: inline-block;
+  color: #ffffff;
+  padding: 0.02em 0.3em;
+  border: var(--t-border-width) solid var(--t-border-color);
+  border-radius: 12px;
+  box-shadow: 5px 5px 0 0 var(--t-border-color);
+  transform: rotate(-1.5deg);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.nb-highlight-alt { transform: rotate(1.5deg); }
+.nb-highlight:hover { transform: rotate(0deg) scale(1.03); }
+
+/* Section kicker badge */
+.nb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: #ffffff;
+  color: #0b0b0b;
+  border: var(--t-border-width) solid var(--t-border-color);
+  border-radius: var(--t-border-radius-pill);
+  box-shadow: 4px 4px 0 0 var(--t-border-color);
+}
+
+/* Card hover physics — pure CSS, replaces JS mouseenter shadow swaps */
+.nb-card {
+  border: var(--t-border-width) solid var(--t-border-color);
+  box-shadow: var(--t-shadow-sm);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.nb-card:hover {
+  transform: translate(-4px, -4px);
+  box-shadow: var(--t-shadow-hover);
+}
+
+/* Pressable button: shadow collapses as it travels into the page */
+.nb-btn {
+  border: var(--t-border-width) solid var(--t-border-color);
+  box-shadow: var(--t-shadow-btn);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.nb-btn:hover {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 0 var(--t-border-color);
+}
+
+/* Bordered chip / sticker pill */
+.nb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  font-weight: 700;
+  border: 2px solid var(--t-border-color);
+  border-radius: var(--t-border-radius-pill);
+  background: #ffffff;
+  color: #0b0b0b;
+  box-shadow: 3px 3px 0 0 var(--t-border-color);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+.nb-chip:hover {
+  transform: translate(-2px, -2px) rotate(-2deg);
+  box-shadow: 5px 5px 0 0 var(--t-border-color);
+}
+
+/* Floating doodles */
+@keyframes nb-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(6deg); }
+}
+@keyframes nb-float-alt {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(10px) rotate(-8deg); }
+}
+@keyframes nb-spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes nb-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-6deg); }
+  75% { transform: rotate(6deg); }
+}
+.nb-float { animation: nb-float 6s ease-in-out infinite; }
+.nb-float-alt { animation: nb-float-alt 7s ease-in-out infinite; }
+.nb-spin-slow { animation: nb-spin-slow 14s linear infinite; }
+.group:hover .nb-wiggle-hover, .nb-wiggle-hover:hover { animation: nb-wiggle 0.4s ease-in-out; }
+
+/* Poster-style outlined display text */
+.nb-outline-text {
+  color: transparent;
+  -webkit-text-stroke: 3px #0b0b0b;
+}
+@media (max-width: 768px) {
+  .nb-outline-text { -webkit-text-stroke-width: 2px; }
+}
+
+/* Typewriter caret */
+@keyframes nb-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.nb-caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.1em;
+  background: #0b0b0b;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+  animation: nb-blink 1s steps(1) infinite;
+}
+
+/* Skeleton shimmer for loading cards */
+@keyframes nb-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.nb-skeleton {
+  background: linear-gradient(110deg, #ececec 35%, #f8f8f8 50%, #ececec 65%);
+  background-size: 200% 100%;
+  animation: nb-shimmer 1.6s linear infinite;
+  border-radius: 8px;
+}
+
+/* ===== Varsity League layer ("AKAI" theme) ===== */
+
+:root {
+  --t-paper: #FBF9F4;
+  --t-ink: #101820;
+  --t-navy: #25408F;
+  --t-red: #D9251D;
+  --t-orange: #E07A1F;
+  --t-silver: #C7CCD4;
+
+  --t-font-display: var(--font-tourney), "Arial Black", system-ui, sans-serif;
+  --t-font-varsity: var(--font-graduate), "Arial Black", system-ui, sans-serif;
+  --t-font-jp: var(--font-noto-jp), "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+
+  --vl-shadow: 8px 8px 0 0 var(--t-navy);
+  --vl-shadow-sm: 5px 5px 0 0 var(--t-navy);
+  --vl-shadow-hover: 12px 12px 0 0 var(--t-navy);
+}
+
+/* Vertical Japanese type rail */
+.vl-rail-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-family: var(--t-font-jp);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  user-select: none;
+}
+
+/* Giant italic logotype — backdrop layer.
+   Tourney carries a true italic axis, so no synthetic skew. */
+.vl-backdrop-type {
+  font-family: var(--t-font-display);
+  font-style: italic;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: var(--t-navy);
+  line-height: 0.8;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Display headline utility — same voice, content-level sizes */
+.vl-display {
+  font-family: var(--t-font-display);
+  font-style: italic;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+/* Stroke-only navy display text */
+.vl-outline {
+  color: transparent;
+  -webkit-text-stroke: 3px var(--t-navy);
+}
+
+/* Varsity jersey lettering: red fill, navy stroke, white separation ring.
+   Wrapper carries data-text matching the content. */
+.vl-varsity-wrap {
+  position: relative;
+  display: inline-block;
+}
+.vl-varsity-wrap::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  color: #ffffff;
+  -webkit-text-stroke: 10px #ffffff;
+}
+.vl-varsity {
+  position: relative;
+  z-index: 1;
+  font-family: var(--t-font-varsity);
+  text-transform: uppercase;
+  color: var(--t-red);
+  -webkit-text-stroke: 2.5px var(--t-navy);
+  paint-order: stroke fill;
+}
+.vl-varsity-wrap::before { font-family: var(--t-font-varsity); text-transform: uppercase; }
+
+/* Card / button physics, navy plates */
+.vl-card {
+  border: var(--t-border-width) solid var(--t-ink);
+  box-shadow: var(--vl-shadow-sm);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.vl-card:hover {
+  transform: translate(-4px, -4px);
+  box-shadow: var(--vl-shadow-hover);
+}
+.vl-btn {
+  border: var(--t-border-width) solid var(--t-ink);
+  border-radius: 0; /* sharp — matches chips & badges */
+  box-shadow: var(--vl-shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.vl-btn:hover {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 0 var(--t-navy);
+}
+
+/* Hanko seal press */
+.vl-seal {
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.vl-seal:hover { transform: scale(0.92); }
+
+/* ===== Interests: StPageFlip comic book ===== */
+.stf__parent { margin: 0 auto; }
+.vl-page {
+  overflow: hidden;
+  background-color: var(--t-bg-card);
+  /* faint paper grain for physicality */
+  background-image: radial-gradient(rgba(16, 24, 32, 0.03) 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+.vl-page-inner { width: 100%; height: 100%; }
+
+/* comic double ink-frame inside each page */
+.vl-ink-frame {
+  position: absolute;
+  inset: 8px;
+  border: 2px solid var(--t-ink);
+  pointer-events: none;
+  z-index: 6;
+}
+.vl-ink-frame-light { border-color: rgba(251, 249, 244, 0.55); }
+
+/* floating doodle drift */
+@keyframes vl-doodle-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-7px) rotate(8deg); }
+}
+.vl-doodle { animation: vl-doodle-float 5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .vl-doodle { animation: none; } }
+
+/* ===== Interests: FPV 3D remote ===== */
+.tv-remote-stage { perspective: 1200px; }
+.tv-remote {
+  transform: rotateX(40deg);
+  transform-origin: center bottom;
+  transform-style: preserve-3d;
+}
+.rbtn {
+  box-shadow: 0 4px 0 0 rgba(0, 0, 0, 0.5);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease, color 0.15s ease;
+}
+.rbtn:active { transform: translateY(3px); box-shadow: 0 1px 0 0 rgba(0, 0, 0, 0.5); }
+@media (prefers-reduced-motion: reduce) { .tv-remote { transition: none; } }
+
+/* ===== Interests: retro CRT TV ===== */
+.crt-scanlines {
+  background-image: repeating-linear-gradient(rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px);
+}
+.crt-vignette {
+  box-shadow: inset 0 0 70px 14px rgba(0, 0, 0, 0.6);
+}
+@keyframes crt-flick { 0%, 100% { opacity: 0.04; } 50% { opacity: 0.1; } }
+.crt-flick { background: #fff; animation: crt-flick 0.11s steps(2) infinite; }
+
+.crt-static {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 170px 170px;
+  animation: crt-static-move 0.22s steps(3) infinite;
+}
+@keyframes crt-static-move { from { background-position: 0 0; } to { background-position: 92px 60px; } }
+
+@keyframes crt-osd-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.crt-osd { animation: crt-osd-in 0.25s ease both; }
+
+@keyframes crt-tune-in { 0% { opacity: 0; transform: scale(1.04); filter: contrast(1.6) brightness(1.3); } 100% { opacity: 1; transform: scale(1); filter: none; } }
+.crt-tune { animation: crt-tune-in 0.45s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .crt-flick, .crt-static, .crt-tune { animation: none; }
+}
+
+/* manga screentone (halftone dots) — reused on book pages */
+.comic-halftone {
+  background-image: radial-gradient(currentColor 1.4px, transparent 1.7px);
+  background-size: 9px 9px;
+}
+.comic-burst {
+  background: repeating-conic-gradient(
+    from 0deg at 50% 56%,
+    rgba(16, 24, 32, 0.07) 0deg 4deg,
+    transparent 4deg 9deg
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-page[data-dir] { animation: none; }
+}
+
+/* ===== Hero: subtle silver sheen on the character ===== */
+.hero-figure { position: relative; }
+
+/* very subtle, neutral silver shimmer, masked to the character silhouette */
+.hero-sheen {
+  opacity: 0;
+  mix-blend-mode: screen;
+  background-image: linear-gradient(
+    115deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.45) 49%,
+    rgba(228, 228, 230, 0.28) 53%,
+    transparent 60%
+  );
+  background-size: 240% 240%;
+  background-position: calc(50% + 40% * var(--px, 0)) calc(50% + 40% * var(--py, 0));
+  -webkit-mask-image: url("/hero-cut.png");
+  mask-image: url("/hero-cut.png");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  transition: opacity 0.5s ease;
+}
+.hero-stage[data-active="true"] .hero-sheen { opacity: 0.3; }
+
+/* Vertical auto-scrolling marquee (achievements). Track holds two identical
+   groups, each with matching trailing padding, so -50% loops seamlessly. */
+@keyframes vl-marquee-y {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+.vl-marquee-y { animation: vl-marquee-y 32s linear infinite; }
+.vl-marquee-col:hover .vl-marquee-y { animation-play-state: paused; }
+
+/* Manga speed lines (clipped, low-opacity, sparingly) */
+.vl-speedlines {
+  background-image: repeating-linear-gradient(
+    105deg,
+    var(--t-ink) 0 2px,
+    transparent 2px 14px
+  );
+  opacity: 0.06;
+}
+
+/* Squared ticket-stub kicker / badge */
+.vl-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.85rem;
+  font-family: var(--t-font-body);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: var(--t-bg-card);
+  color: var(--t-ink);
+  border: var(--t-border-width) solid var(--t-ink);
+  box-shadow: var(--vl-shadow-sm);
+}
+
+/* Squared roster chip */
+.vl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  font-family: var(--t-font-body);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 2px solid var(--t-ink);
+  background: var(--t-bg-card);
+  color: var(--t-ink);
+  box-shadow: 3px 3px 0 0 var(--t-navy);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.vl-chip:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 0 var(--t-navy);
+  background: var(--t-navy);
+  color: var(--t-bg-card);
+}
+
+/* Document card — squarer than a trading card (contracts, reports) */
+.vl-doc {
+  background: var(--t-bg-card);
+  border: var(--t-border-width) solid var(--t-ink);
+  border-radius: var(--t-border-radius-sm);
+  box-shadow: var(--vl-shadow);
+}
+
+/* Welded term/attribute row — hairline divider, no gaps */
+.vl-row + .vl-row { border-top: 2px solid color-mix(in srgb, var(--t-ink) 14%, transparent); }
+
+/* Ink-stamp text (verdict / approval marks) */
+.vl-stamp {
+  display: inline-block;
+  font-family: var(--t-font-display);
+  font-style: italic;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--t-red);
+  border: 3px solid var(--t-red);
+  border-radius: 6px;
+  padding: 0.15em 0.4em;
+  opacity: 0.85;
+}
+
+/* Character-photo bleed: melt the grey studio backdrop into paper */
+.vl-photo-bleed {
+  mix-blend-mode: multiply;
+  -webkit-mask-image: radial-gradient(120% 100% at 50% 45%, #000 58%, transparent 100%);
+  mask-image: radial-gradient(120% 100% at 50% 45%, #000 58%, transparent 100%);
+}
+
+/* Skeleton alias for the new layer */
+.vl-skeleton {
+  background: linear-gradient(110deg, #e7e4dd 35%, #f6f3ec 50%, #e7e4dd 65%);
+  background-size: 200% 100%;
+  animation: nb-shimmer 1.6s linear infinite;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vl-photo-bleed { /* keep static */ }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-float, .nb-float-alt, .nb-spin-slow, .animate-marquee {
+    animation: none;
+  }
+}
