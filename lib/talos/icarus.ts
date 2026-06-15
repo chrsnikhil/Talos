@@ -3,10 +3,12 @@ import { readPolicy, authorizeSpend } from "./chain"
 import { getApys } from "./yields"
 import { decide, decideWithLLM } from "./decide"
 import { storeDecision } from "./walrus"
+import { appendDecision } from "./feed"
 import { placeRealOrder, deepbookEnabled } from "./deepbook"
 import { depositUsdc as scallopDeposit, withdrawUsdc as scallopWithdraw } from "./scallop"
 import { depositUsdc as naviDeposit, withdrawUsdc as naviWithdraw } from "./navi"
 import { depositUsdc as kaiDeposit, withdrawUsdc as kaiWithdraw } from "./kai"
+import { depositUsdc as heliosDeposit, withdrawUsdc as heliosWithdraw } from "./sevenk"
 
 const CHUNK = Number(process.env.TALOS_CHUNK ?? 100) // size of a single rebalance, in budget units
 
@@ -19,6 +21,9 @@ const VENUES: Record<string, Venue> = {
   scallop: { deposit: scallopDeposit, withdraw: scallopWithdraw },
   navi: { deposit: naviDeposit, withdraw: naviWithdraw },
   kai: { deposit: kaiDeposit, withdraw: kaiWithdraw },
+  // Volatile rotation venue: USDC↔SUI swaps via 7k (see sevenk.ts). Only ever a
+  // rebalance target when TALOS_HELIOS=1 surfaces SUI's momentum in the survey.
+  sui: { deposit: heliosDeposit, withdraw: heliosWithdraw },
 }
 const LENDING_ENABLED = process.env.TALOS_LENDING === "1" || process.env.TALOS_SCALLOP === "1"
 const USDC_CHUNK = Number(process.env.TALOS_USDC_CHUNK ?? 0.5) // real USDC per rebalance
@@ -40,6 +45,7 @@ export async function runCycle(n: number): Promise<void> {
     return
   }
 
+  const positionBefore = current
   const decision = (await decideWithLLM(current, apys, policy, CHUNK)) ?? decide(current, apys, policy, CHUNK)
   const feed = apys.map((a) => `${a.protocol} ${a.apy}%`).join(" · ")
   const move = decision.action === "REBALANCE" ? `${decision.amount} → ${decision.target}` : "—"
@@ -109,4 +115,21 @@ export async function runCycle(n: number): Promise<void> {
 
   const blobId = await storeDecision({ ts, agent: AGENT_ADDRESS, apys, decision, txDigest: digest, deepbookDigest, lendingDigest, status })
   if (blobId) console.log(`   ↳ decision stored on Walrus: ${blobId}`)
+
+  // Mirror the decision into the local feed so the dashboard can stream Icarus's reasoning
+  // (HOLDs included — they never hit the chain). Newest-last; the API reverses for display.
+  appendDecision({
+    n,
+    ts,
+    apys,
+    from: positionBefore,
+    action: decision.action,
+    target: decision.target,
+    amount: decision.amount,
+    reasoning: decision.reasoning,
+    by: decision.by,
+    status,
+    txDigest: digest,
+    blobId,
+  })
 }

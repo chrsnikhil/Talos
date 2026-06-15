@@ -1,3 +1,5 @@
+import { getSuiPrice } from "@7kprotocol/sdk-ts"
+
 export type Apy = { protocol: string; apy: number }
 
 // Real Sui USDC lending markets the agent surveys each cycle. Each entry maps the
@@ -51,12 +53,48 @@ function simulated(): Apy[] {
   })
 }
 
-export async function getApys(): Promise<Apy[]> {
-  if (process.env.TALOS_SIMULATE === "1") return simulated()
-  const real = await fetchReal()
-  if (real) {
-    lastReal = real
-    return real
+// ---- Helios: the volatile venue's signal (gated by TALOS_HELIOS=1) ----
+// SUI is not a lending market, so it has no APY to read. Instead we express its
+// attractiveness as a momentum-tilted yield comparable to the lending rates: a
+// neutral baseline near the lending mid, tilted up when SUI's recent price trend is
+// positive and down when it's negative. When the tilt pushes it above the best
+// lending APY by the anti-churn threshold, decide() rotates real USDC into SUI (see
+// sevenk.ts); when the trend fades it drops below cash and the agent rotates back.
+// Raw short-window returns are meaningless to annualize, so we tilt-and-clamp instead
+// — the sign and magnitude track real SUI price, bounded to a sane, readable band.
+const SUI_BASE = Number(process.env.TALOS_SUI_BASE ?? 5.5) // neutral, ~ lending mid
+const MOM_GAIN = Number(process.env.TALOS_SUI_MOM_GAIN ?? 4) // how hard recent % move tilts the signal
+const MOM_LOOKBACK = Number(process.env.TALOS_SUI_LOOKBACK ?? 6) // samples back to measure the trend
+const MOM_CLAMP_LO = Number(process.env.TALOS_SUI_CLAMP_LO ?? -50)
+const MOM_CLAMP_HI = Number(process.env.TALOS_SUI_CLAMP_HI ?? 80)
+const priceWindow: number[] = []
+
+async function suiSignal(): Promise<Apy | null> {
+  try {
+    const price = await getSuiPrice()
+    if (!(price > 0)) return null
+    priceWindow.push(price)
+    if (priceWindow.length > MOM_LOOKBACK + 1) priceWindow.shift()
+    const past = priceWindow[0]
+    const retPct = past > 0 ? ((price - past) / past) * 100 : 0
+    const tilt = Math.max(MOM_CLAMP_LO, Math.min(MOM_CLAMP_HI, MOM_GAIN * retPct))
+    return { protocol: "sui", apy: +(SUI_BASE + tilt).toFixed(2) }
+  } catch {
+    return null
   }
-  return lastReal ?? simulated()
+}
+
+export async function getApys(): Promise<Apy[]> {
+  let base: Apy[]
+  if (process.env.TALOS_SIMULATE === "1") base = simulated()
+  else {
+    const real = await fetchReal()
+    if (real) lastReal = real
+    base = real ?? lastReal ?? simulated()
+  }
+  if (process.env.TALOS_HELIOS === "1") {
+    const sui = await suiSignal()
+    if (sui) base = [...base, sui]
+  }
+  return base
 }

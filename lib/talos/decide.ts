@@ -51,7 +51,8 @@ export async function decideWithLLM(
   const maxAmount = Math.min(chunk, policy.per_tx_cap, policy.remaining_budget)
   const prompt =
     `You are Icarus, an autonomous yield agent on Sui. Current position: ${current}. ` +
-    `Live USDC supply APYs: ${JSON.stringify(apys)}. ` +
+    `Live market signals (USDC lending APYs; a "sui" entry, if present, is SUI's momentum-tilted signal — ` +
+    `rotating into it means swapping cash into the volatile SUI asset): ${JSON.stringify(apys)}. ` +
     `Your on-chain policy caps you at per_tx_cap=${policy.per_tx_cap}, remaining_budget=${policy.remaining_budget}. ` +
     `Only rebalance if a protocol clearly beats your current one by at least ${THRESHOLD_PP} percentage points (avoid churn). ` +
     `Decide whether to HOLD or REBALANCE to the highest-yielding protocol. ` +
