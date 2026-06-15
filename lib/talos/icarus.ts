@@ -12,7 +12,7 @@ let current = process.env.TALOS_START_PROTOCOL ?? "suilend"
 /** One Icarus cycle: sense → think → act (on-chain, policy-gated) → record (Walrus). */
 export async function runCycle(n: number): Promise<void> {
   const policy = await readPolicy()
-  const apys = getApys()
+  const apys = await getApys()
   const ts = new Date().toISOString()
 
   if (policy.revoked) {
