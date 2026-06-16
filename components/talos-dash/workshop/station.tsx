@@ -20,41 +20,44 @@ interface Palette {
   dark: string
 }
 
+// All stations share a cohesive blue → cyan → indigo family so the scene reads as
+// one "blue" workshop matching the Talos accent (#3b97fb), each station a distinct
+// hue within that range for legibility. Dark bases keep them grounded on the navy floor.
 const PALETTES: Record<string, Palette> = {
   compute: {
-    base: "#1e1b4b",
-    body: "#4338ca",
-    top: "#818cf8",
-    accent: "#fde68a",
-    dark: "#111827",
+    base: "#13234d",
+    body: "#3b5bd0",
+    top: "#8ea8ff",
+    accent: "#dbe7ff",
+    dark: "#0a1018",
   },
   storage: {
-    base: "#064e3b",
-    body: "#0d9488",
-    top: "#5eead4",
-    accent: "#fef3c7",
-    dark: "#111827",
+    base: "#0c3a4f",
+    body: "#1f8fb8",
+    top: "#6fd6ee",
+    accent: "#d6f6ff",
+    dark: "#0a1018",
   },
   keeperhub: {
-    base: "#7c2d12",
-    body: "#ea580c",
-    top: "#fed7aa",
-    accent: "#fde68a",
-    dark: "#111827",
+    base: "#10396e",
+    body: "#3b97fb",
+    top: "#9cc8ff",
+    accent: "#e3f0ff",
+    dark: "#0a1018",
   },
   vault: {
-    base: "#713f12",
-    body: "#eab308",
-    top: "#fde68a",
-    accent: "#78350f",
-    dark: "#1c1917",
+    base: "#13294f",
+    body: "#2f6bdf",
+    top: "#86adff",
+    accent: "#dbe7ff",
+    dark: "#0a1018",
   },
   inft: {
-    base: "#831843",
-    body: "#ec4899",
-    top: "#f9a8d4",
-    accent: "#fbcfe8",
-    dark: "#111827",
+    base: "#0c3744",
+    body: "#17a7c0",
+    top: "#71e4f2",
+    accent: "#d6fbff",
+    dark: "#0a1018",
   },
 }
 

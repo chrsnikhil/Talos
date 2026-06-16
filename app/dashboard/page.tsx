@@ -180,35 +180,7 @@ export default function Dashboard() {
         {/* ===== LIVE ===== */}
         {tab === "LIVE" && (
           <div className="space-y-8">
-            <SwarmHeartbeat swarm={swarm} />
-            <Panel title={`BUDGET LEASH // ${pct}% REMAINING`}>
-              <div className="px-5 pt-5">
-                <div className="h-3 w-full border-2 border-border">
-                  <div className="h-full bg-accent transition-all duration-700" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-              <div className="h-64 w-full p-4">
-                {budgetSeries.length > 1 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={budgetSeries} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
-                      <defs>
-                        <linearGradient id="bud" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={ACCENT} stopOpacity={0.4} />
-                          <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke={GRID} vertical={false} />
-                      <XAxis dataKey="name" stroke={GRID} tick={{ fill: TICK, fontSize: 10, fontFamily: "var(--font-mono)" }} />
-                      <YAxis stroke={GRID} tick={{ fill: TICK, fontSize: 10, fontFamily: "var(--font-mono)" }} width={56} />
-                      <Tooltip content={<ChartTip />} cursor={{ stroke: ACCENT, strokeOpacity: 0.3 }} />
-                      <Area type="stepAfter" dataKey="remaining" stroke={ACCENT} strokeWidth={2} fill="url(#bud)" dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground">BUDGET HISTORY APPEARS AS ICARUS REBALANCES</div>
-                )}
-              </div>
-            </Panel>
+            {/* Voxel workshop + live event stream — the centerpiece, up top */}
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
               <div className="lg:col-span-2 border-2 border-border">
                 <div className="border-b-2 border-border px-5 py-2.5 text-[11px] uppercase tracking-widest">AGENT WORKSHOP // ICARUS · DAEDALUS</div>
@@ -218,6 +190,38 @@ export default function Dashboard() {
                 <div className="border-b-2 border-border px-5 py-2.5 text-[11px] uppercase tracking-widest">EVENT STREAM</div>
                 <div className="h-[520px] p-3"><EventStream bare /></div>
               </div>
+            </div>
+
+            {/* Heartbeat + simplified budget leash — side by side, below */}
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <SwarmHeartbeat swarm={swarm} />
+              </div>
+              <Panel title={`BUDGET LEASH // ${pct}%`}>
+                <div className="space-y-4 px-5 py-5">
+                  <div className="font-pixel text-3xl text-accent">{policy?.remaining_budget ?? "—"}</div>
+                  <div className="h-3 w-full border-2 border-border">
+                    <div className="h-full bg-accent transition-all duration-700" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="h-24 w-full">
+                    {budgetSeries.length > 1 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={budgetSeries} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+                          <defs>
+                            <linearGradient id="bud" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor={ACCENT} stopOpacity={0.4} />
+                              <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <Area type="stepAfter" dataKey="remaining" stroke={ACCENT} strokeWidth={2} fill="url(#bud)" dot={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-center text-[10px] uppercase tracking-widest text-muted-foreground">BUDGET HISTORY APPEARS AS ICARUS REBALANCES</div>
+                    )}
+                  </div>
+                </div>
+              </Panel>
             </div>
           </div>
         )}

@@ -238,7 +238,7 @@ export function WorkshopScene({
       )}
 
       <div
-        style={{ height, background: "#1a1612" }}
+        style={{ height, background: "#0a0f18" }}
         className="relative w-full border border-border/40"
       >
         <Canvas
@@ -256,27 +256,27 @@ export function WorkshopScene({
           <CameraRig mode={effectiveMode} botRefs={botRefs} />
 
           {/* Lighting */}
-          <ambientLight intensity={0.75} color="#fff8ee" />
+          <ambientLight intensity={0.75} color="#eaf1ff" />
           <directionalLight
             position={[10, 20, 8]}
             intensity={1.1}
-            color="#ffe8c4"
+            color="#cfe0ff"
           />
           <directionalLight
             position={[-10, 8, -6]}
             intensity={0.3}
-            color="#c4d4ff"
+            color="#9bb8ff"
           />
 
           {/* Ground */}
           <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[80, 80]} />
-            <meshLambertMaterial color="#1a1612" />
+            <meshLambertMaterial color="#0d1320" />
           </mesh>
 
           {/* Grid */}
           <gridHelper
-            args={[80, 40, "#ea580c", "#2a1608"]}
+            args={[80, 40, "#3b97fb", "#152238"]}
             position={[0, 0.01, 0]}
           />
 
@@ -334,13 +334,13 @@ export function WorkshopScene({
       {!bare && (
         <div className="flex flex-wrap items-center gap-6 px-6 py-3 border-t border-border/50 bg-black/40">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 bg-[#ea580c]" />
+            <span className="h-2 w-2 bg-[#3b97fb]" />
             <span className="text-[10px] font-mono tracking-[0.15em] uppercase text-muted-foreground">
               ICARUS · executor
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 bg-white" />
+            <span className="h-2 w-2 bg-[#22b0c8]" />
             <span className="text-[10px] font-mono tracking-[0.15em] uppercase text-muted-foreground">
               DAEDALUS · critic
             </span>

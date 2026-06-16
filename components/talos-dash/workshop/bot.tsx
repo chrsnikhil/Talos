@@ -32,14 +32,14 @@ const SPECS: Record<AgentId, BotSpec> = {
     visorEye: "#bfe0ff",
     accent: "#dbeeff",
   },
-  // DAEDALUS — amber critic
+  // DAEDALUS — cyan critic (blue family, distinct from Icarus's royal blue)
   daedalus: {
-    body: "#f59e0b",
-    bodyDark: "#78350f",
-    head: "#fbbf24",
-    visorBand: "#1c1917",
-    visorEye: "#fde68a",
-    accent: "#fef3c7",
+    body: "#22b0c8",
+    bodyDark: "#0e3a44",
+    head: "#3fcfe6",
+    visorBand: "#08151b",
+    visorEye: "#caf6ff",
+    accent: "#d6fbff",
   },
 }
 
