@@ -50,11 +50,38 @@ function writePos(suiBase: bigint) {
   }
 }
 
-/** Pick the best quote (max amountOut) across the aggregator's providers. */
-async function bestQuote(coinTypeIn: string, coinTypeOut: string, amountIn: string) {
+/** All routes for a swap, sorted by amountOut descending (best first). */
+async function sortedQuotes(coinTypeIn: string, coinTypeOut: string, amountIn: string) {
   const quotes = await aggregator().quote({ coinTypeIn, coinTypeOut, amountIn })
   if (!quotes?.length) throw new Error("no swap route found")
-  return quotes.reduce((a, b) => (BigInt(b.amountOut) > BigInt(a.amountOut) ? b : a))
+  return [...quotes].sort((a, b) => (BigInt(b.amountOut) > BigInt(a.amountOut) ? 1 : -1))
+}
+
+/** Execute a swap best-route-first, falling through to the next route when one aborts.
+ * Some routes (esp. SUI→USDC) intermittently abort at build/dry-run with a Move
+ * `dynamic_field` error; a different provider's route usually settles cleanly. We make
+ * two passes (re-quoting between them so a transiently-stale route is refreshed) and try
+ * up to the 4 best routes each pass. A failed build dry-run-aborts BEFORE submitting, so
+ * falling through costs no gas. Returns the winning quote + result, else throws. */
+async function swapBestEffort(
+  coinTypeIn: string,
+  coinTypeOut: string,
+  amountIn: string,
+): Promise<{ quote: any; res: Res }> {
+  let lastErr: unknown
+  for (let pass = 0; pass < 2; pass++) {
+    const quotes = await sortedQuotes(coinTypeIn, coinTypeOut, amountIn)
+    for (const quote of quotes.slice(0, 4)) {
+      try {
+        const res = await executeSwap(quote)
+        if (res.status === "success") return { quote, res }
+        lastErr = new Error(`swap on-chain status: ${res.status}`)
+      } catch (e) {
+        lastErr = e
+      }
+    }
+  }
+  throw lastErr ?? new Error("all swap routes failed")
 }
 
 /** Build, sign, and execute a swap via 7k. Returns digest + on-chain status. */
@@ -79,8 +106,7 @@ async function suiBalance(): Promise<number> {
 /** Enter the volatile position: swap `amountUsdc` of real USDC into SUI. */
 export async function depositUsdc(amountUsdc: number): Promise<Res> {
   const amountIn = Math.round(amountUsdc * 10 ** USDC_DECIMALS).toString()
-  const quote = await bestQuote(USDC_TYPE, SUI_TYPE, amountIn)
-  const res = await executeSwap(quote)
+  const { quote, res } = await swapBestEffort(USDC_TYPE, SUI_TYPE, amountIn)
   if (res.status === "success") {
     // record the SUI we just acquired so a later exit sells exactly this, not gas SUI
     writePos(readPos() + BigInt(quote.amountOut))
@@ -102,8 +128,7 @@ export async function withdrawUsdc(_amountUsdc: number): Promise<Res> {
   if (sellableBase <= 0n) throw new Error(`gas reserve guard: only ${free.toFixed(4)} SUI free`)
   if (suiToSell > sellableBase) suiToSell = sellableBase
 
-  const quote = await bestQuote(SUI_TYPE, USDC_TYPE, suiToSell.toString())
-  const res = await executeSwap(quote)
+  const { res } = await swapBestEffort(SUI_TYPE, USDC_TYPE, suiToSell.toString())
   if (res.status === "success") {
     const remaining = readPos() - suiToSell
     writePos(remaining > 0n ? remaining : 0n)

@@ -26,6 +26,9 @@ importers:
       '@mysten/sui':
         specifier: 1.45.2
         version: 1.45.2(typescript@5.9.3)
+      '@pythnetwork/hermes-client':
+        specifier: ^3.1.0
+        version: 3.1.0(axios@1.18.0)
       '@radix-ui/react-accordion':
         specifier: 1.2.2
         version: 1.2.2(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -7198,7 +7201,6 @@ snapshots:
       zod: 3.25.76
     transitivePeerDependencies:
       - axios
-    optional: true
 
   '@pythnetwork/price-service-client@1.9.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)':
     dependencies:
@@ -8467,7 +8469,6 @@ snapshots:
     dependencies:
       axios: 1.18.0
       zod: 3.25.76
-    optional: true
 
   acorn-walk@8.3.5:
     dependencies:
@@ -9308,13 +9309,11 @@ snapshots:
 
   eventemitter3@5.0.4: {}
 
-  eventsource-parser@3.1.0:
-    optional: true
+  eventsource-parser@3.1.0: {}
 
   eventsource@3.0.7:
     dependencies:
       eventsource-parser: 3.1.0
-    optional: true
 
   execa@5.1.1:
     dependencies:
