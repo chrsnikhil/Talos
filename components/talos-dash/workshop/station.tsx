@@ -20,24 +20,27 @@ interface Palette {
   dark: string
 }
 
-// All stations share a cohesive blue → cyan → indigo family so the scene reads as
-// one "blue" workshop matching the Talos accent (#3b97fb), each station a distinct
-// hue within that range for legibility. Dark bases keep them grounded on the navy floor.
+// Distinct jewel-tone hue per station so the workshop reads as varied (not monochrome
+// blue), while the navy floor/grid/lighting keeps it on-brand. Blue anchors the set;
+// the volatile SUI venue (vault) gets a warm amber to pop against the cool scene.
 const PALETTES: Record<string, Palette> = {
+  // NAVI — indigo/violet
   compute: {
-    base: "#13234d",
-    body: "#3b5bd0",
-    top: "#8ea8ff",
-    accent: "#dbe7ff",
+    base: "#2a1d5e",
+    body: "#6d5cf0",
+    top: "#a99bff",
+    accent: "#e6e0ff",
     dark: "#0a1018",
   },
+  // KAI — teal
   storage: {
-    base: "#0c3a4f",
-    body: "#1f8fb8",
-    top: "#6fd6ee",
-    accent: "#d6f6ff",
+    base: "#0c4a40",
+    body: "#14b890",
+    top: "#6ee7c7",
+    accent: "#d6fff2",
     dark: "#0a1018",
   },
+  // SCALLOP — Talos blue
   keeperhub: {
     base: "#10396e",
     body: "#3b97fb",
@@ -45,16 +48,18 @@ const PALETTES: Record<string, Palette> = {
     accent: "#e3f0ff",
     dark: "#0a1018",
   },
+  // SUI · 7K (volatile) — warm amber/gold
   vault: {
-    base: "#13294f",
-    body: "#2f6bdf",
-    top: "#86adff",
-    accent: "#dbe7ff",
-    dark: "#0a1018",
+    base: "#5e3a0e",
+    body: "#f5a623",
+    top: "#ffd27a",
+    accent: "#fff0d0",
+    dark: "#1c1206",
   },
+  // WALRUS — cyan
   inft: {
     base: "#0c3744",
-    body: "#17a7c0",
+    body: "#22b8d4",
     top: "#71e4f2",
     accent: "#d6fbff",
     dark: "#0a1018",

@@ -197,23 +197,45 @@ export default function Dashboard() {
               <div className="lg:col-span-2">
                 <SwarmHeartbeat swarm={swarm} />
               </div>
-              <Panel title={`BUDGET LEASH // ${pct}%`}>
-                <div className="space-y-4 px-5 py-5">
-                  <div className="font-pixel text-3xl text-accent">{policy?.remaining_budget ?? "—"}</div>
-                  <div className="h-3 w-full border-2 border-border">
-                    <div className="h-full bg-accent transition-all duration-700" style={{ width: `${pct}%` }} />
+              <Panel title="BUDGET LEASH">
+                <div className="space-y-5 px-5 py-5">
+                  <div className="flex items-end justify-between">
+                    <div className="font-pixel text-4xl leading-none text-accent">
+                      {pct}
+                      <span className="text-lg text-muted-foreground">%</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono text-sm text-foreground">{policy?.remaining_budget ?? "—"}</div>
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">of {budgetTotal} left</div>
+                    </div>
                   </div>
-                  <div className="h-24 w-full">
+                  <div className="h-2.5 w-full overflow-hidden border border-border bg-black/30">
+                    <div
+                      className="h-full bg-linear-to-r from-accent/50 to-accent transition-all duration-700"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <div className="-mx-2 h-28">
                     {budgetSeries.length > 1 ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={budgetSeries} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+                        <AreaChart data={budgetSeries} margin={{ top: 6, right: 6, bottom: 0, left: 6 }}>
                           <defs>
                             <linearGradient id="bud" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={ACCENT} stopOpacity={0.4} />
-                              <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+                              <stop offset="0%" stopColor={ACCENT} stopOpacity={0.55} />
+                              <stop offset="100%" stopColor={ACCENT} stopOpacity={0.03} />
                             </linearGradient>
                           </defs>
-                          <Area type="stepAfter" dataKey="remaining" stroke={ACCENT} strokeWidth={2} fill="url(#bud)" dot={false} />
+                          <CartesianGrid vertical={false} stroke={GRID} strokeOpacity={0.25} />
+                          <Tooltip content={<ChartTip />} cursor={{ stroke: ACCENT, strokeOpacity: 0.25 }} />
+                          <Area
+                            type="monotone"
+                            dataKey="remaining"
+                            stroke={ACCENT}
+                            strokeWidth={2.5}
+                            fill="url(#bud)"
+                            dot={false}
+                            activeDot={{ r: 3, fill: ACCENT, stroke: "transparent" }}
+                          />
                         </AreaChart>
                       </ResponsiveContainer>
                     ) : (

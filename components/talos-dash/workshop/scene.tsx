@@ -276,7 +276,7 @@ export function WorkshopScene({
 
           {/* Grid */}
           <gridHelper
-            args={[80, 40, "#3b97fb", "#152238"]}
+            args={[80, 40, "#2c4a72", "#132033"]}
             position={[0, 0.01, 0]}
           />
 
@@ -340,7 +340,7 @@ export function WorkshopScene({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 bg-[#22b0c8]" />
+            <span className="h-2 w-2 bg-[#f59e0b]" />
             <span className="text-[10px] font-mono tracking-[0.15em] uppercase text-muted-foreground">
               DAEDALUS · critic
             </span>
