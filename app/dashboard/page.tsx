@@ -1,11 +1,20 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import { ArrowUpRight, ArrowLeft } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { EventStream } from "@/components/talos-dash/event-stream"
+import { ThoughtStream } from "@/components/talos-dash/thought-stream"
+import { PortfolioPanel } from "@/components/talos-dash/portfolio-panel"
+import { OnchainStream } from "@/components/talos-dash/onchain-stream"
+
+const WorkshopScene = dynamic(
+  () => import("@/components/talos-dash/workshop/scene").then((m) => m.WorkshopScene),
+  { ssr: false, loading: () => <div className="flex h-[520px] items-center justify-center border-2 border-border text-xs uppercase tracking-widest text-muted-foreground">loading workshop…</div> },
+)
 
 const EXPLORER = "https://suiscan.xyz/mainnet"
-const WALRUS = "https://aggregator.walrus-testnet.walrus.space/v1/blobs"
 const ACCENT = "#3b97fb"
 const GRID = "#2e3440"
 const TICK = "#8a93a6"
@@ -33,22 +42,6 @@ type Swarm = {
   model?: string
   intervalMs?: number
 }
-type Apy = { protocol: string; apy: number }
-type Decision = {
-  n: number
-  ts: string
-  apys: Apy[]
-  from: string
-  action: "HOLD" | "REBALANCE" | string
-  target: string
-  amount: number
-  reasoning: string
-  by: string
-  status?: string
-  txDigest?: string | null
-  blobId?: string | null
-}
-
 const trunc = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "—")
 function ago(ms: number) {
   if (!ms) return ""
@@ -58,38 +51,7 @@ function ago(ms: number) {
   if (s < 86400) return `${Math.floor(s / 3600)}h`
   return `${Math.floor(s / 86400)}d`
 }
-const LABEL: Record<string, string> = {
-  SpendAuthorized: "REBALANCE",
-  PolicyRevoked: "REVOKED",
-  PolicyCreated: "CREATED",
-  ToppedUp: "TOP-UP",
-  ExpiryExtended: "EXTENDED",
-  CriticRating: "RATING",
-  ReputationCreated: "CRITIC INIT",
-}
-function evDetail(e: Ev): string {
-  const d = e.data || {}
-  switch (e.type) {
-    case "SpendAuthorized":
-      return `${d.amount} → ${d.protocol} · remaining ${d.remaining}`
-    case "PolicyRevoked":
-      return "agent disabled by owner"
-    case "PolicyCreated":
-      return `budget ${d.budget} · per-tx ${d.per_tx_cap}`
-    case "ToppedUp":
-      return `+${d.added} · remaining ${d.remaining}`
-    case "ExpiryExtended":
-      return `new expiry ${d.new_expires_at_ms}`
-    case "CriticRating":
-      return `${d.score}/100 · ${d.verdict} · re ${String(d.ref_tx ?? "").slice(0, 8)}…`
-    case "ReputationCreated":
-      return "reputation ledger created"
-    default:
-      return ""
-  }
-}
-
-const TABS = ["OVERVIEW", "THOUGHTS", "ACTIVITY", "POLICY", "REPUTATION"] as const
+const TABS = ["LIVE", "THOUGHT", "PORTFOLIO", "ON-CHAIN", "POLICY", "REPUTATION"] as const
 type Tab = (typeof TABS)[number]
 
 function ChartTip({ active, payload, label, unit }: any) {
@@ -128,27 +90,24 @@ export default function Dashboard() {
   const [events, setEvents] = useState<Ev[]>([])
   const [rep, setRep] = useState<{ total: number; avg: number } | null>(null)
   const [swarm, setSwarm] = useState<Swarm | null>(null)
-  const [decisions, setDecisions] = useState<Decision[]>([])
   const [updated, setUpdated] = useState<Date | null>(null)
-  const [tab, setTab] = useState<Tab>("OVERVIEW")
+  const [tab, setTab] = useState<Tab>("LIVE")
 
   useEffect(() => {
     let alive = true
     async function tick() {
       try {
-        const [p, a, rp, sw, dc] = await Promise.all([
+        const [p, a, rp, sw] = await Promise.all([
           fetch("/api/talos/policy", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/activity", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/reputation", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/swarm", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
-          fetch("/api/talos/decisions", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
         ])
         if (!alive) return
         if (!p.error) setPolicy(p)
         setEvents(a.events || [])
         if (!rp.error) setRep(rp)
         if (sw && !sw.error) setSwarm(sw)
-        if (dc && !dc.error) setDecisions(dc.decisions || [])
         setUpdated(new Date())
       } catch {
         /* keep last good state */
@@ -169,8 +128,6 @@ export default function Dashboard() {
 
   const spends = useMemo(() => events.filter((e) => e.type === "SpendAuthorized").slice().reverse(), [events])
   const ratings = useMemo(() => events.filter((e) => e.type === "CriticRating").slice().reverse(), [events])
-  const rebalances = spends.length
-
   const budgetSeries = useMemo(() => {
     const arr: { name: string; remaining: number }[] = []
     if (policy) arr.push({ name: "init", remaining: budgetTotal })
@@ -220,22 +177,10 @@ export default function Dashboard() {
       </div>
 
       <div className="px-6 py-8 lg:px-10">
-        {/* ===== OVERVIEW ===== */}
-        {tab === "OVERVIEW" && (
+        {/* ===== LIVE ===== */}
+        {tab === "LIVE" && (
           <div className="space-y-8">
             <SwarmHeartbeat swarm={swarm} />
-
-            <ThoughtsFeed decisions={decisions.slice(0, 5)} live={Boolean(swarm?.active)} compact />
-
-            <div className="grid grid-cols-2 border-2 border-border sm:grid-cols-3 lg:grid-cols-6 [&>*]:border-b-2 [&>*]:border-r-2 [&>*]:border-border">
-              <Stat label="REMAINING" value={policy?.remaining_budget ?? "—"} accent />
-              <Stat label="TOTAL SPENT" value={policy?.total_spent ?? "—"} />
-              <Stat label="PER-TX CAP" value={policy?.per_tx_cap ?? "—"} />
-              <Stat label="REBALANCES" value={rebalances} />
-              <Stat label="CRITIC AVG" value={rep ? rep.avg : "—"} accent />
-              <Stat label="RATINGS" value={rep ? rep.total : "—"} />
-            </div>
-
             <Panel title={`BUDGET LEASH // ${pct}% REMAINING`}>
               <div className="px-5 pt-5">
                 <div className="h-3 w-full border-2 border-border">
@@ -260,32 +205,33 @@ export default function Dashboard() {
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                    BUDGET HISTORY APPEARS AS ICARUS REBALANCES
-                  </div>
+                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground">BUDGET HISTORY APPEARS AS ICARUS REBALANCES</div>
                 )}
               </div>
             </Panel>
-
-            <Panel title="RECENT ACTIVITY">
-              {events.slice(0, 6).map((e, i) => (
-                <ActivityRow key={e.tx + i} e={e} />
-              ))}
-              {events.length === 0 && <Empty />}
-            </Panel>
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+              <div className="lg:col-span-2 border-2 border-border">
+                <div className="border-b-2 border-border px-5 py-2.5 text-[11px] uppercase tracking-widest">AGENT WORKSHOP // ICARUS · DAEDALUS</div>
+                <div className="h-[520px]"><WorkshopScene bare /></div>
+              </div>
+              <div className="border-2 border-border">
+                <div className="border-b-2 border-border px-5 py-2.5 text-[11px] uppercase tracking-widest">EVENT STREAM</div>
+                <div className="h-[520px] p-3"><EventStream bare /></div>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* ===== THOUGHTS ===== */}
-        {tab === "THOUGHTS" && <ThoughtsFeed decisions={decisions} live={Boolean(swarm?.active)} />}
+        {/* ===== THOUGHT ===== */}
+        {tab === "THOUGHT" && <ThoughtStream />}
 
-        {/* ===== ACTIVITY ===== */}
-        {tab === "ACTIVITY" && (
-          <Panel title={`ON-CHAIN ACTIVITY // ${events.length} EVENTS`}>
-            {events.map((e, i) => (
-              <ActivityRow key={e.tx + i} e={e} />
-            ))}
-            {events.length === 0 && <Empty />}
+        {/* ===== PORTFOLIO ===== */}
+        {tab === "PORTFOLIO" && <PortfolioPanel />}
+
+        {/* ===== ON-CHAIN ===== */}
+        {tab === "ON-CHAIN" && (
+          <Panel title={`ON-CHAIN PROOFS // ${events.length} EVENTS`}>
+            <div className="p-3"><OnchainStream bare /></div>
           </Panel>
         )}
 
@@ -440,115 +386,6 @@ function SwarmHeartbeat({ swarm }: { swarm: Swarm | null }) {
           <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">INTERVAL</div>
         </div>
       </div>
-    </div>
-  )
-}
-
-function ThoughtsFeed({ decisions, live, compact }: { decisions: Decision[]; live: boolean; compact?: boolean }) {
-  const title = compact ? "AGENT THOUGHTS // LIVE STREAM" : `AGENT THOUGHTS // ${decisions.length} TICKS`
-  return (
-    <div className="border-2 border-border">
-      <div className="flex items-center justify-between border-b-2 border-border px-5 py-2.5">
-        <span className="text-[11px] uppercase tracking-widest">{title}</span>
-        <span className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-          <span className={`h-2 w-2 ${live ? "animate-blink bg-accent" : "bg-muted-foreground"}`} />
-          ICARUS · {live ? "THINKING" : "IDLE"}
-        </span>
-      </div>
-      {decisions.length === 0 && (
-        <div className="px-5 py-12 text-center text-xs text-muted-foreground">
-          NO DECISIONS YET — ICARUS LOGS A THOUGHT EVERY TICK.
-        </div>
-      )}
-      {decisions.map((d) => (
-        <ThoughtRow key={`${d.n}-${d.ts}`} d={d} />
-      ))}
-    </div>
-  )
-}
-
-function ThoughtRow({ d }: { d: Decision }) {
-  const rebalance = d.action === "REBALANCE"
-  const best = [...(d.apys ?? [])].sort((a, b) => b.apy - a.apy)[0]?.protocol
-  return (
-    <div className="border-b border-border px-5 py-4">
-      <div className="flex items-center gap-3">
-        <span className="shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground">#{d.n}</span>
-        <span
-          className={`shrink-0 border px-2 py-1 text-[9px] uppercase tracking-wider ${
-            rebalance ? "border-accent text-accent" : "border-border text-muted-foreground"
-          }`}
-        >
-          {d.action}
-        </span>
-        {rebalance && (
-          <span className="shrink-0 text-[10px] uppercase tracking-widest text-accent">
-            {d.amount} · {d.from} → {d.target}
-          </span>
-        )}
-        <span className="ml-auto shrink-0 border border-border px-2 py-1 text-[9px] uppercase tracking-wider text-muted-foreground">
-          {d.by}
-        </span>
-        <span className="hidden shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">
-          {ago(Date.parse(d.ts))}
-        </span>
-      </div>
-
-      {/* live APY survey — the numbers the decision was grounded on */}
-      <div className="mt-2.5 flex flex-wrap gap-2">
-        {(d.apys ?? []).map((a) => {
-          const isPos = a.protocol === d.target
-          const isBest = a.protocol === best
-          return (
-            <span
-              key={a.protocol}
-              className={`border px-2 py-1 text-[10px] uppercase tracking-wider ${
-                isPos ? "border-accent text-accent" : isBest ? "border-foreground text-foreground" : "border-border text-muted-foreground"
-              }`}
-            >
-              {a.protocol} {a.apy}%{isPos ? " ◀" : ""}
-            </span>
-          )
-        })}
-      </div>
-
-      {/* the reasoning — what makes this a "thought" and not just an event */}
-      {d.reasoning && (
-        <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
-          <span className="text-foreground">↳ </span>
-          {d.reasoning}
-        </p>
-      )}
-
-      {(d.blobId || d.txDigest) && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-4 text-[10px] uppercase tracking-widest">
-          {d.txDigest && (
-            <a href={`${EXPLORER}/tx/${d.txDigest}`} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
-              ON-CHAIN TX <ArrowUpRight size={12} />
-            </a>
-          )}
-          {d.blobId && (
-            <a href={`${WALRUS}/${d.blobId}`} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1 text-muted-foreground hover:text-foreground" title="Decision record on Walrus">
-              WALRUS MEMORY <ArrowUpRight size={12} />
-            </a>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ActivityRow({ e }: { e: Ev }) {
-  return (
-    <div className="flex items-center gap-4 border-b border-border px-5 py-3">
-      <span className="shrink-0 border border-border px-2 py-1 text-[9px] uppercase tracking-wider text-accent">{LABEL[e.type] ?? e.type}</span>
-      <span className="flex-1 truncate text-xs text-muted-foreground">{evDetail(e)}</span>
-      <span className="hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">{ago(e.timestampMs)}</span>
-      <a href={`${EXPLORER}/tx/${e.tx}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" title="View tx">
-        <ArrowUpRight size={14} />
-      </a>
     </div>
   )
 }
