@@ -55,7 +55,7 @@ interface EventBehavior {
 const EVENT_BEHAVIOR: Record<string, EventBehavior> = {
   REBALANCE: { target: "sui", task: "rotating funds", linger: 2500 },
   SPEND: { target: "policy", task: "authorizing spend", linger: 2000 },
-  HOLD: { target: "home", task: "surveying yields", linger: 1000 },
+  HOLD: { target: "walrus", task: "logging to walrus", linger: 1200 },
   RATING: { target: "policy", task: "rating decision", linger: 2000 },
   PolicyCreated: { target: "policy", task: "policy created", linger: 1500 },
   ToppedUp: { target: "policy", task: "top-up", linger: 1500 },
@@ -81,7 +81,11 @@ function interpretEvent(e: AgentEvent): Array<{ agent: AgentId; behavior: EventB
   const base = EVENT_BEHAVIOR[e.type]
   if (!base) return []
   const target = (e.station as StationId) ?? base.target
-  return [{ agent: e.agent, behavior: { ...base, target } }]
+  const task =
+    (e.type === "REBALANCE" || e.type === "SPEND") && e.station
+      ? `→ ${e.station}`
+      : base.task
+  return [{ agent: e.agent, behavior: { ...base, target, task } }]
 }
 
 export function useWorkshopState() {

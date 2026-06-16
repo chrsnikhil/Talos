@@ -128,7 +128,7 @@ export function EventStream({ bare = false }: { bare?: boolean } = {}) {
                   className="shrink-0 text-[var(--accent-color)] hover:text-foreground transition-colors flex items-center gap-0.5"
                 >
                   <span className="text-[10px] tracking-widest uppercase">
-                    {e.txHash ? "TX" : "0G"}
+                    {e.txHash ? "TX" : "BLOB"}
                   </span>
                   <ArrowUpRight size={11} strokeWidth={2} />
                 </a>
@@ -147,7 +147,7 @@ export function EventStream({ bare = false }: { bare?: boolean } = {}) {
 
       {/* Footer note */}
       <div className="mt-3 flex items-center justify-between text-[9px] font-mono tracking-[0.15em] uppercase text-muted-foreground">
-        <span>streaming from /api/events · live pipe</span>
+        <span>streaming from talos · live</span>
         <span>I icarus · D daedalus</span>
       </div>
     </BentoCell>

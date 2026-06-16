@@ -129,9 +129,11 @@ function DaedalusCard({ score, verdict, tx, ts }: { score: number; verdict: stri
         <span className="ml-auto hidden shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">{ago(ts)}</span>
       </div>
       {verdict && <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground"><span className="text-foreground">↳ </span>{verdict}</p>}
-      <div className="mt-2.5 text-[10px] uppercase tracking-widest">
-        <a href={`${EXPLORER}/tx/${tx}`} target="_blank" rel="noopener noreferrer" className="flex w-fit items-center gap-1 text-muted-foreground hover:text-foreground">ON-CHAIN RATING <ArrowUpRight size={12} /></a>
-      </div>
+      {tx && (
+        <div className="mt-2.5 text-[10px] uppercase tracking-widest">
+          <a href={`${EXPLORER}/tx/${tx}`} target="_blank" rel="noopener noreferrer" className="flex w-fit items-center gap-1 text-muted-foreground hover:text-foreground">ON-CHAIN RATING <ArrowUpRight size={12} /></a>
+        </div>
+      )}
     </div>
   )
 }

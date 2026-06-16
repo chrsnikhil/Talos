@@ -230,7 +230,7 @@ export default function Dashboard() {
 
         {/* ===== ON-CHAIN ===== */}
         {tab === "ON-CHAIN" && (
-          <Panel title={`ON-CHAIN PROOFS // ${events.length} EVENTS`}>
+          <Panel title={`ON-CHAIN PROOFS // SUI · WALRUS`}>
             <div className="p-3"><OnchainStream bare /></div>
           </Panel>
         )}
