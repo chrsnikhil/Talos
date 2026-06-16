@@ -90,8 +90,8 @@ Changes:
 - `STATIONS` → 6 Talos stations mapped onto the existing 5 mesh variants
   (`compute|storage|keeperhub|vault|inft`):
   - SCALLOP → `keeperhub` mesh, NAVI → `compute`, KAI → `storage`,
-    SUI·7K → `vault`, WALRUS → `inft`, POLICY → reuse `compute`/`vault` variant (TBD pick
-    during impl for visual distinctness).
+    SUI·7K → `vault`, WALRUS → `inft`, POLICY → reuse the `compute` variant
+    (reads as the on-chain "processor"; placed apart from NAVI so the reuse isn't obvious).
 - `EVENT_BEHAVIOR` (Talos):
   - `REBALANCE` → station = target venue (scallop/navi/kai/sui), task `"rotating → {target}"`, linger 2500
   - `SPEND` → same as REBALANCE target, task `"authorizing spend"`, linger 2000
