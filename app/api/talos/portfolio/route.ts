@@ -1,8 +1,26 @@
-import { getSuiPrice } from "@7kprotocol/sdk-ts"
 import { RPC } from "@/lib/talos/public"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+
+// SUI/USD price from a lightweight public endpoint. We deliberately do NOT import
+// @7kprotocol/sdk-ts here: that SDK pulls the Cetus aggregator + Pyth client into the
+// Next.js server bundle, which is heavy and breaks the build on incomplete installs.
+// The swarm runtime still uses getSuiPrice (it runs under tsx, unbundled). Returns 0
+// on any failure so the route degrades gracefully (positions just omit SUI's USD value).
+async function fetchSuiPrice(): Promise<number> {
+  try {
+    const r = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=SUIUSDT", {
+      cache: "no-store",
+    })
+    if (!r.ok) return 0
+    const j = await r.json()
+    const p = Number(j?.price)
+    return p > 0 ? p : 0
+  } catch {
+    return 0
+  }
+}
 
 const AGENT =
   process.env.TALOS_AGENT_ADDRESS ||
@@ -34,7 +52,7 @@ export async function GET() {
   try {
     const [balances, price, decisionsRes, activityRes] = await Promise.all([
       rpc("suix_getAllBalances", [AGENT]) as Promise<Balance[]>,
-      getSuiPrice().catch(() => 0),
+      fetchSuiPrice(),
       fetch(
         `${process.env.DASHBOARD_SELF_URL || "http://127.0.0.1:3000"}/api/talos/decisions`,
         { cache: "no-store" },
