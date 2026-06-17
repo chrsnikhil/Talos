@@ -3,14 +3,19 @@ import { client, keypair, PACKAGE_ID, POLICY_ID, REPUTATION_ID } from "./config"
 
 export type SpendEvent = { tx: string; amount: number; protocol: string; remaining: number; timestampMs: number }
 
-/** Read Icarus's SpendAuthorized events for this policy, oldest first. */
-export async function readSpendEvents(limit = 50): Promise<SpendEvent[]> {
+/** Read Icarus's SpendAuthorized events for this policy, oldest first.
+ * Fetches the most recent `limit` events (descending) then reverses to oldest-first.
+ * NB: querying `ascending` freezes on the first `limit` events forever as the log
+ * grows — once those are all rated, Daedalus sees no new rebalances to judge and the
+ * critic stalls. Descending keeps a rolling window over the latest activity. */
+export async function readSpendEvents(limit = 200): Promise<SpendEvent[]> {
   const res = await client.queryEvents({
     query: { MoveEventType: `${PACKAGE_ID}::agent_policy::SpendAuthorized` },
-    order: "ascending",
+    order: "descending",
     limit,
   })
   return res.data
+    .reverse()
     .filter((e) => (e.parsedJson as any)?.policy_id === POLICY_ID)
     .map((e) => {
       const d = e.parsedJson as any
