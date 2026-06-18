@@ -69,9 +69,35 @@ const MOM_CLAMP_LO = Number(process.env.TALOS_SUI_CLAMP_LO ?? -50)
 const MOM_CLAMP_HI = Number(process.env.TALOS_SUI_CLAMP_HI ?? 80)
 const priceWindow: number[] = []
 
+// SUI/USD for the momentum signal. 7k's getSuiPrice() intermittently returns 0 when its
+// price endpoint is down/rate-limited — and it fails *silently* (returns 0, not an error),
+// which drops SUI from the survey entirely. Source from Binance (reliable, keyless; the
+// dashboard portfolio route uses the same feed), falling back to 7k only if Binance is down.
+async function suiPriceUsd(): Promise<number> {
+  try {
+    const r = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=SUIUSDT", {
+      signal: AbortSignal.timeout(4000),
+    })
+    if (r.ok) {
+      const j: any = await r.json()
+      const p = Number(j?.price)
+      if (p > 0) return p
+    }
+  } catch {
+    /* fall through to 7k */
+  }
+  try {
+    const p = await getSuiPrice()
+    if (p > 0) return p
+  } catch {
+    /* ignore */
+  }
+  return 0
+}
+
 async function suiSignal(): Promise<Apy | null> {
   try {
-    const price = await getSuiPrice()
+    const price = await suiPriceUsd()
     if (!(price > 0)) return null
     priceWindow.push(price)
     if (priceWindow.length > MOM_LOOKBACK + 1) priceWindow.shift()
