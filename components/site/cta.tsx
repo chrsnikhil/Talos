@@ -69,7 +69,7 @@ export function Cta() {
         <div className="pointer-events-none relative z-10 flex items-center justify-between border-b border-white/10 px-5 py-2 text-[10px] uppercase tracking-widest text-foreground/70">
           <span>TALOS://LIVE</span>
           <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 bg-accent" /> SUI TESTNET
+            <span className="h-1.5 w-1.5 bg-accent" /> SUI MAINNET
           </span>
         </div>
 

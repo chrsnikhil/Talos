@@ -1,12 +1,10 @@
 import Dither from "@/components/Dither"
 import { Navbar } from "@/components/site/navbar"
-import { Hero } from "@/components/site/hero"
-import { Features } from "@/components/site/features"
-import { HowItWorks } from "@/components/site/how-it-works"
-import { Agents } from "@/components/site/agents"
-import { BuiltOnSui } from "@/components/site/built-on-sui"
-import { Metrics } from "@/components/site/metrics"
-import { Roadmap } from "@/components/site/roadmap"
+import { LandingHero } from "@/components/landing/hero"
+import { LiveStatsStrip } from "@/components/landing/live-stats-strip"
+import { HowItWorks } from "@/components/landing/how-it-works"
+import { PerformanceSection } from "@/components/landing/performance-section"
+import { PolicyMemory } from "@/components/landing/policy-memory"
 import { Cta } from "@/components/site/cta"
 import { Footer } from "@/components/site/footer"
 
@@ -32,13 +30,11 @@ export default function Home() {
 
       <div className="relative z-10">
         <Navbar />
-        <Hero />
-        <Features />
+        <LandingHero />
+        <LiveStatsStrip />
         <HowItWorks />
-        <Agents />
-        <BuiltOnSui />
-        <Metrics />
-        <Roadmap />
+        <PerformanceSection />
+        <PolicyMemory />
         <Cta />
         <Footer />
       </div>
