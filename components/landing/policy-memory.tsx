@@ -1,6 +1,6 @@
 "use client"
 /**
- * PolicyMemory — replaces ZW.ARM's iNFT Origin Tree.
+ * PolicyMemory — the trust layer of the landing page.
  *
  * Two-pillar layout (POLICY · MEMORY) telling the Talos story of:
  *   1. On-chain Move AgentPolicy "leash" — budget ceiling, protocol
