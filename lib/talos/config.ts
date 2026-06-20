@@ -26,3 +26,18 @@ function loadKeypair(): Ed25519Keypair {
 
 export const keypair = loadKeypair()
 export const AGENT_ADDRESS = keypair.toSuiAddress()
+
+// Daedalus (the critic) signs its on-chain ratings with its OWN key, so the
+// reputation ledger's `critic` is a different address than the executor it
+// grades — the "independent critic" claim is verifiable on-chain, not just
+// asserted. Falls back to the agent key when no separate critic key is set, so
+// older single-key deployments keep working unchanged.
+function loadCriticKeypair(): Ed25519Keypair {
+  const k = process.env.TALOS_CRITIC_KEY
+  if (!k) return keypair
+  const { secretKey } = decodeSuiPrivateKey(k)
+  return Ed25519Keypair.fromSecretKey(secretKey)
+}
+
+export const criticKeypair = loadCriticKeypair()
+export const CRITIC_ADDRESS = criticKeypair.toSuiAddress()

@@ -1,5 +1,5 @@
 import { Transaction } from "@mysten/sui/transactions"
-import { client, keypair, PACKAGE_ID, POLICY_ID, REPUTATION_ID } from "./config"
+import { client, keypair, criticKeypair, PACKAGE_ID, POLICY_ID, REPUTATION_ID } from "./config"
 
 export type SpendEvent = { tx: string; amount: number; protocol: string; remaining: number; timestampMs: number }
 
@@ -45,7 +45,7 @@ export async function submitRating(score: number, verdict: string, refTx: string
     target: `${PACKAGE_ID}::reputation::submit_rating`,
     arguments: [tx.object(REPUTATION_ID), tx.pure.u8(score), tx.pure.string(verdict), tx.pure.string(refTx)],
   })
-  const res = await client.signAndExecuteTransaction({ signer: keypair, transaction: tx, options: { showEffects: true } })
+  const res = await client.signAndExecuteTransaction({ signer: criticKeypair, transaction: tx, options: { showEffects: true } })
   await client.waitForTransaction({ digest: res.digest })
   return { digest: res.digest, status: res.effects?.status?.status }
 }

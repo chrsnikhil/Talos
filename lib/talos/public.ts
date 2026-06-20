@@ -7,6 +7,6 @@ export const PACKAGE_ID =
 export const POLICY_ID =
   process.env.TALOS_POLICY_ID || "0x16d5c0c966ac8d78992908ada307dc5991fc76ce4915ae499fa91cfe11c1b5b6"
 export const REPUTATION_ID =
-  process.env.TALOS_REPUTATION_ID || "0xcadc34281fa4a2415b9b6ef94a498cb91bf9030fcbe080efc1136498f264a7a2"
+  process.env.TALOS_REPUTATION_ID || "0x3928f7b3ab4114a44b0f533ed627c247994894985c91cf05464ab36d161f072a"
 
 export const EXPLORER = `https://suiscan.xyz/${NETWORK}`
