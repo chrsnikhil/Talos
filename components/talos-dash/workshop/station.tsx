@@ -41,7 +41,7 @@ const PALETTES: Record<string, Palette> = {
     dark: "#0a1018",
   },
   // SCALLOP — Talos blue
-  keeperhub: {
+  dispatch: {
     base: "#10396e",
     body: "#3b97fb",
     top: "#9cc8ff",
@@ -57,7 +57,7 @@ const PALETTES: Record<string, Palette> = {
     dark: "#1c1206",
   },
   // WALRUS — cyan
-  inft: {
+  shrine: {
     base: "#0c3744",
     body: "#22b8d4",
     top: "#71e4f2",
@@ -294,7 +294,7 @@ function StorageRack({ palette }: { palette: Palette }) {
   )
 }
 
-function KeeperhubDispatcher({ palette }: { palette: Palette }) {
+function DispatchStation({ palette }: { palette: Palette }) {
   return (
     <group>
       {/* Ramp / entrance step */}
@@ -460,7 +460,7 @@ function VaultSafe({ palette }: { palette: Palette }) {
   )
 }
 
-function InftShrine({ palette }: { palette: Palette }) {
+function ShrineStation({ palette }: { palette: Palette }) {
   return (
     <group>
       {/* 3-tier pedestal */}
@@ -511,9 +511,9 @@ function InftShrine({ palette }: { palette: Palette }) {
 function StationVariant({ id, palette }: { id: string; palette: Palette }) {
   if (id === "compute") return <ComputeTower palette={palette} />
   if (id === "storage") return <StorageRack palette={palette} />
-  if (id === "keeperhub") return <KeeperhubDispatcher palette={palette} />
+  if (id === "dispatch") return <DispatchStation palette={palette} />
   if (id === "vault") return <VaultSafe palette={palette} />
-  return <InftShrine palette={palette} />
+  return <ShrineStation palette={palette} />
 }
 
 export function StationBlock({ station }: { station: Station }) {

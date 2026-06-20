@@ -5,7 +5,7 @@ import { useAgentEvents } from "@/lib/talos-dash/use-agent-events"
 import type { AgentEvent, AgentId } from "@/lib/talos-dash/events"
 
 export type StationId = "scallop" | "navi" | "kai" | "sui" | "walrus" | "policy"
-export type MeshId = "compute" | "storage" | "keeperhub" | "vault" | "inft"
+export type MeshId = "compute" | "storage" | "dispatch" | "vault" | "shrine"
 
 export interface Station {
   id: StationId
@@ -16,11 +16,11 @@ export interface Station {
 }
 
 export const STATIONS: Station[] = [
-  { id: "scallop", meshId: "keeperhub", label: "SCALLOP", subLabel: "USDC lending", position: [-8, -6] },
+  { id: "scallop", meshId: "dispatch", label: "SCALLOP", subLabel: "USDC lending", position: [-8, -6] },
   { id: "navi", meshId: "compute", label: "NAVI", subLabel: "USDC lending", position: [8, -6] },
   { id: "kai", meshId: "storage", label: "KAI", subLabel: "USDC lending", position: [-8, 6] },
   { id: "sui", meshId: "vault", label: "SUI · 7K", subLabel: "volatile rotation", position: [8, 6] },
-  { id: "walrus", meshId: "inft", label: "WALRUS", subLabel: "decision log", position: [0, -9] },
+  { id: "walrus", meshId: "shrine", label: "WALRUS", subLabel: "decision log", position: [0, -9] },
   { id: "policy", meshId: "compute", label: "POLICY", subLabel: "on-chain leash", position: [0, 9] },
 ]
 
