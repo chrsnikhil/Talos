@@ -4,7 +4,7 @@
  *
  * Does NOT show PnL/APY-earned (Talos's real PnL is gas-dominated on a
  * tiny demo wallet). Instead: honest operational-proof metrics framed
- * around verifiable autonomy. Layout mirrors ZW.ARM's bento treatment.
+ * around verifiable autonomy.
  */
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
