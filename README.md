@@ -45,11 +45,11 @@ This is a custom on-chain system, not a wrapper around an RPC:
 
 | Artifact | Address |
 | --- | --- |
-| Package (`agent_policy` + `reputation`) | `0x75b7f5d2926f333d8849726655904111420d4f86acb2578274b31338bcf8142c` |
-| AgentPolicy (the on-chain leash) | `0x16d5c0c966ac8d78992908ada307dc5991fc76ce4915ae499fa91cfe11c1b5b6` |
-| Reputation ledger | `0x3928f7b3ab4114a44b0f533ed627c247994894985c91cf05464ab36d161f072a` |
-| Icarus (executor) | `0x1f0455e5fb79711dff710e04aa9a7ea4dbb582b77a3a5452fcc61be1cb80ea7f` |
-| Daedalus (critic) | `0x4f11c87bbd643a06ff73b88fc10faff62d47142dc0edf5ae3783bcc0ded9f2ea` |
+| Package (`agent_policy` + `reputation`) | [`0x75b7f5d2926f333d8849726655904111420d4f86acb2578274b31338bcf8142c`](https://suiscan.xyz/mainnet/object/0x75b7f5d2926f333d8849726655904111420d4f86acb2578274b31338bcf8142c) |
+| AgentPolicy (the on-chain leash) | [`0x16d5c0c966ac8d78992908ada307dc5991fc76ce4915ae499fa91cfe11c1b5b6`](https://suiscan.xyz/mainnet/object/0x16d5c0c966ac8d78992908ada307dc5991fc76ce4915ae499fa91cfe11c1b5b6) |
+| Reputation ledger | [`0x3928f7b3ab4114a44b0f533ed627c247994894985c91cf05464ab36d161f072a`](https://suiscan.xyz/mainnet/object/0x3928f7b3ab4114a44b0f533ed627c247994894985c91cf05464ab36d161f072a) |
+| Icarus (executor) | [`0x1f0455e5fb79711dff710e04aa9a7ea4dbb582b77a3a5452fcc61be1cb80ea7f`](https://suiscan.xyz/mainnet/account/0x1f0455e5fb79711dff710e04aa9a7ea4dbb582b77a3a5452fcc61be1cb80ea7f) |
+| Daedalus (critic) | [`0x4f11c87bbd643a06ff73b88fc10faff62d47142dc0edf5ae3783bcc0ded9f2ea`](https://suiscan.xyz/mainnet/account/0x4f11c87bbd643a06ff73b88fc10faff62d47142dc0edf5ae3783bcc0ded9f2ea) |
 
 Browse any of these on [Suiscan](https://suiscan.xyz/mainnet). A rebalance is signed by Icarus; its rating is signed by Daedalus. The two are different keys, so the independent critique is verifiable, not just claimed.
 
