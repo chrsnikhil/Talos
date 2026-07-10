@@ -269,3 +269,57 @@ fun agent_locked_out_after_panic_freeze() {
     vault::return_position(&mut v, r, coin::mint_for_testing<SCOIN>(100, sc.ctx()));
     abort 0
 }
+
+#[test, expected_failure(abort_code = vault::EInsufficientIdle)]
+fun cannot_borrow_more_than_idle() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc);
+    sc.next_tx(OWNER);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        vault::deposit(&mut v, coin::mint_for_testing<TUSDC>(50, sc.ctx()));
+        ts::return_shared(v);
+    };
+    sc.next_tx(AGENT);
+    let mut v = sc.take_shared<Vault<TUSDC>>();
+    let policy = sc.take_shared<AgentPolicy>();
+    let mut clk = clock::create_for_testing(sc.ctx());
+    clk.set_for_testing(0);
+    let (u, r) = vault::borrow_for_supply(&mut v, &policy, &clk, 100, string::utf8(b"scallop"), sc.ctx());
+    coin::burn_for_testing(u);
+    vault::return_position(&mut v, r, coin::mint_for_testing<SCOIN>(1, sc.ctx()));
+    abort 0
+}
+
+#[test, expected_failure(abort_code = vault::ENoSuchPosition)]
+fun owner_withdraw_missing_position_aborts() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc);
+    sc.next_tx(OWNER);
+    let mut v = sc.take_shared<Vault<TUSDC>>();
+    let cap = sc.take_from_sender<OwnerCap>();
+    let scoin = vault::owner_withdraw_position<TUSDC, SCOIN>(&mut v, &cap, sc.ctx());
+    coin::burn_for_testing(scoin);
+    abort 0
+}
+
+#[test, expected_failure(abort_code = agent_policy::EExpired)]
+fun agent_cannot_borrow_after_expiry() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc);
+    sc.next_tx(OWNER);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        vault::deposit(&mut v, coin::mint_for_testing<TUSDC>(1000, sc.ctx()));
+        ts::return_shared(v);
+    };
+    sc.next_tx(AGENT);
+    let mut v = sc.take_shared<Vault<TUSDC>>();
+    let policy = sc.take_shared<AgentPolicy>();
+    let mut clk = clock::create_for_testing(sc.ctx());
+    clk.set_for_testing(20_000); // policy expires at 10_000
+    let (u, r) = vault::borrow_for_supply(&mut v, &policy, &clk, 100, string::utf8(b"scallop"), sc.ctx());
+    coin::burn_for_testing(u);
+    vault::return_position(&mut v, r, coin::mint_for_testing<SCOIN>(100, sc.ctx()));
+    abort 0
+}
