@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 import { useVault } from "@/lib/wallet/use-vault";
+import { useAgent } from "@/lib/wallet/use-agent";
 import {
   buildDeposit,
   buildOwnerWithdrawUsdc,
@@ -84,6 +85,52 @@ const S = {
     cursor: "not-allowed",
   } as CSSProperties,
 
+  agentStatus: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+    padding: "8px 12px",
+    border: "1px solid #1e2d3d",
+    background: "#0a0f15",
+  } as CSSProperties,
+
+  agentStatusRunning: {
+    color: "#28d391",
+    fontSize: 12,
+    fontWeight: "bold",
+    letterSpacing: "0.08em",
+    flex: 1,
+  } as CSSProperties,
+
+  agentStatusPaused: {
+    color: "#f2b64c",
+    fontSize: 12,
+    fontWeight: "bold",
+    letterSpacing: "0.08em",
+    flex: 1,
+  } as CSSProperties,
+
+  agentBtn: {
+    background: "transparent",
+    border: "1px solid #28d391",
+    color: "#28d391",
+    fontFamily: "monospace",
+    padding: "4px 12px",
+    fontSize: 12,
+    cursor: "pointer",
+  } as CSSProperties,
+
+  agentBtnStop: {
+    background: "transparent",
+    border: "1px solid #f2b64c",
+    color: "#f2b64c",
+    fontFamily: "monospace",
+    padding: "4px 12px",
+    fontSize: 12,
+    cursor: "pointer",
+  } as CSSProperties,
+
   panicBtn: {
     background: "#ff2020",
     border: "none",
@@ -136,6 +183,7 @@ const S = {
 
 export default function VaultPanel() {
   const { vault, loading, busy, execute, createVault } = useVault();
+  const { paused, loading: agentLoading, toggle } = useAgent();
 
   // Deposit state
   const [depositAmount, setDepositAmount] = useState("");
@@ -271,6 +319,25 @@ export default function VaultPanel() {
         <p style={{ ...S.label, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase" }}>
           TALOS VAULT
         </p>
+      </div>
+
+      {/* ── Agent control ── */}
+      <div style={S.agentStatus}>
+        {paused ? (
+          <span style={S.agentStatusPaused}>❚❚ PAUSED</span>
+        ) : (
+          <span style={S.agentStatusRunning}>● RUNNING</span>
+        )}
+        <button
+          style={{
+            ...(paused ? S.agentBtn : S.agentBtnStop),
+            ...(agentLoading ? S.btnDisabled : {}),
+          }}
+          disabled={agentLoading}
+          onClick={toggle}
+        >
+          {agentLoading ? "…" : paused ? "Start" : "Stop"}
+        </button>
       </div>
 
       {/* ── Vault stats ── */}
