@@ -177,6 +177,27 @@ fun assert_owner(policy: &AgentPolicy, cap: &OwnerCap) {
     assert!(cap.policy_id == object::id(policy), ENotOwner);
 }
 
+/// Non-decrementing authorization check for composable spends (e.g. the Vault).
+/// Enforces the same bounds as `authorize_spend` EXCEPT it does not touch or check
+/// `remaining_budget` — the Vault's own coin balance is the hard spend limit, and a
+/// continuously-rebalancing vault must not drain a one-way budget counter.
+public fun assert_active(
+    policy: &AgentPolicy,
+    clock: &Clock,
+    protocol: String,
+    amount: u64,
+    ctx: &TxContext,
+) {
+    assert!(ctx.sender() == policy.agent, EUnauthorizedAgent);
+    assert!(!policy.revoked, ERevoked);
+    assert!(clock.timestamp_ms() < policy.expires_at_ms, EExpired);
+    assert!(amount <= policy.per_tx_cap, EOverPerTxCap);
+    assert!(policy.allowed_protocols.contains(&protocol), EProtocolNotAllowed);
+}
+
+/// The policy id this OwnerCap governs — lets other modules (the Vault) verify ownership.
+public fun owner_cap_policy_id(cap: &OwnerCap): ID { cap.policy_id }
+
 // === Views ===
 
 public fun remaining_budget(p: &AgentPolicy): u64 { p.remaining_budget }

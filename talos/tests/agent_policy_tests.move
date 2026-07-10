@@ -159,3 +159,56 @@ fun aborts_when_revoked() {
     agent_policy::authorize_spend(&mut policy, &clk, 100, string::utf8(b"suilend"), sc.ctx());
     abort 0
 }
+
+#[test]
+fun assert_active_happy_and_cap_id() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc, 1000, 500, 10_000);
+
+    // owner_cap_policy_id matches the shared policy's id
+    sc.next_tx(OWNER);
+    {
+        let policy = sc.take_shared<AgentPolicy>();
+        let cap = sc.take_from_sender<OwnerCap>();
+        assert!(agent_policy::owner_cap_policy_id(&cap) == object::id(&policy), 0);
+        sc.return_to_sender(cap);
+        ts::return_shared(policy);
+    };
+
+    // assert_active passes for the agent within bounds and does NOT change the budget
+    sc.next_tx(AGENT);
+    {
+        let policy = sc.take_shared<AgentPolicy>();
+        let mut clk = clock::create_for_testing(sc.ctx());
+        clk.set_for_testing(0);
+        agent_policy::assert_active(&policy, &clk, string::utf8(b"scallop"), 500, sc.ctx());
+        assert!(policy.remaining_budget() == 1000, 1); // unchanged
+        clk.destroy_for_testing();
+        ts::return_shared(policy);
+    };
+    sc.end();
+}
+
+#[test, expected_failure(abort_code = agent_policy::EOverPerTxCap)]
+fun assert_active_rejects_over_cap() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc, 1000, 500, 10_000);
+    sc.next_tx(AGENT);
+    let policy = sc.take_shared<AgentPolicy>();
+    let mut clk = clock::create_for_testing(sc.ctx());
+    clk.set_for_testing(0);
+    agent_policy::assert_active(&policy, &clk, string::utf8(b"scallop"), 600, sc.ctx());
+    abort 0
+}
+
+#[test, expected_failure(abort_code = agent_policy::EUnauthorizedAgent)]
+fun assert_active_rejects_stranger() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc, 1000, 500, 10_000);
+    sc.next_tx(STRANGER);
+    let policy = sc.take_shared<AgentPolicy>();
+    let mut clk = clock::create_for_testing(sc.ctx());
+    clk.set_for_testing(0);
+    agent_policy::assert_active(&policy, &clk, string::utf8(b"scallop"), 100, sc.ctx());
+    abort 0
+}
