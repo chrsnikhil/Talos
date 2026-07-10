@@ -1,6 +1,7 @@
 "use client";
 import SignIn from "@/components/wallet/sign-in";
 import VaultPanel from "@/components/wallet/vault-panel";
+import DashboardPanel from "@/components/wallet/dashboard-panel";
 import { useManagedWallet } from "@/lib/wallet/use-managed-wallet";
 
 export default function AppHome() {
@@ -14,6 +15,7 @@ export default function AppHome() {
           <p>your embedded wallet</p>
           <code>{address}</code>
           <VaultPanel />
+          <DashboardPanel />
         </section>
       )}
     </main>
