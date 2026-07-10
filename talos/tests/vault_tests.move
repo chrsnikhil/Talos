@@ -238,3 +238,34 @@ fun stranger_cap_cannot_withdraw() {
     coin::burn_for_testing(got);
     abort 0
 }
+
+#[test, expected_failure(abort_code = talos::agent_policy::ERevoked)]
+fun agent_locked_out_after_panic_freeze() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc);
+    sc.next_tx(OWNER);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        vault::deposit(&mut v, coin::mint_for_testing<TUSDC>(1000, sc.ctx()));
+        ts::return_shared(v);
+    };
+    // owner PANIC: revoke the policy (the on-chain freeze)
+    sc.next_tx(OWNER);
+    {
+        let mut policy = sc.take_shared<AgentPolicy>();
+        let cap = sc.take_from_sender<OwnerCap>();
+        agent_policy::revoke(&mut policy, &cap);
+        sc.return_to_sender(cap);
+        ts::return_shared(policy);
+    };
+    // agent tries to move funds after the freeze → aborts ERevoked
+    sc.next_tx(AGENT);
+    let mut v = sc.take_shared<Vault<TUSDC>>();
+    let policy = sc.take_shared<AgentPolicy>();
+    let mut clk = clock::create_for_testing(sc.ctx());
+    clk.set_for_testing(0);
+    let (u, r) = vault::borrow_for_supply(&mut v, &policy, &clk, 100, string::utf8(b"scallop"), sc.ctx());
+    coin::burn_for_testing(u);
+    vault::return_position(&mut v, r, coin::mint_for_testing<SCOIN>(100, sc.ctx()));
+    abort 0
+}
