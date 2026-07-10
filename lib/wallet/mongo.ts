@@ -9,6 +9,7 @@ export type UserDoc = {
   iv: string;
   tag: string;
   createdAt: Date;
+  paused?: boolean;
 };
 
 let clientPromise: Promise<MongoClient> | null = null;
