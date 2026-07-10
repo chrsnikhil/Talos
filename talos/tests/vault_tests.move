@@ -132,3 +132,39 @@ fun return_rejects_unlisted_position() {
     vault::return_position(&mut v, receipt, bad);
     abort 0
 }
+
+#[test]
+fun unwind_moves_position_out_and_usdc_in() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc);
+    // fund + supply so a position exists
+    sc.next_tx(OWNER);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        vault::deposit(&mut v, coin::mint_for_testing<TUSDC>(1000, sc.ctx()));
+        ts::return_shared(v);
+    };
+    sc.next_tx(AGENT);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        let policy = sc.take_shared<AgentPolicy>();
+        let mut clk = clock::create_for_testing(sc.ctx());
+        clk.set_for_testing(0);
+        let (usdc_out, r) = vault::borrow_for_supply(&mut v, &policy, &clk, 400, string::utf8(b"scallop"), sc.ctx());
+        coin::burn_for_testing(usdc_out);
+        vault::return_position(&mut v, r, coin::mint_for_testing<SCOIN>(400, sc.ctx()));
+
+        // now unwind: pull the SCOIN out, "redeem" to 410 USDC, return it
+        let (scoin_out, r2) = vault::borrow_position<TUSDC, SCOIN>(&mut v, &policy, &clk, string::utf8(b"scallop"), sc.ctx());
+        assert!(coin::value(&scoin_out) == 400, 0);
+        assert!(vault::has_position<TUSDC, SCOIN>(&v) == false, 1);
+        coin::burn_for_testing(scoin_out);
+        vault::return_usdc(&mut v, r2, coin::mint_for_testing<TUSDC>(410, sc.ctx()));
+        assert!(vault::idle(&v) == 1010, 2); // 600 left + 410 redeemed
+
+        clk.destroy_for_testing();
+        ts::return_shared(policy);
+        ts::return_shared(v);
+    };
+    sc.end();
+}

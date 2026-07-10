@@ -115,6 +115,30 @@ public fun return_position<S, P>(v: &mut Vault<S>, receipt: BorrowReceipt, posit
     event::emit(PositionReturned { vault_id, position: t, amount: amt });
 }
 
+/// Agent pulls the entire `Balance<P>` position out to redeem it, receiving a hot-potato
+/// receipt that MUST be discharged via `return_usdc` in the same PTB. `amount = 0` is passed
+/// to `assert_active` because unwinds bring funds BACK and are not bounded by per_tx_cap.
+public fun borrow_position<S, P>(
+    v: &mut Vault<S>, policy: &AgentPolicy, clock: &Clock,
+    protocol: String, ctx: &mut TxContext,
+): (Coin<P>, BorrowReceipt) {
+    assert!(object::id(policy) == v.policy_id, EWrongVault);
+    let key = PosKey { t: type_name::get<P>() };
+    assert!(df::exists_(&v.id, key), ENoSuchPosition);
+    agent_policy::assert_active(policy, clock, protocol, 0, ctx);
+    let bal: Balance<P> = df::remove(&mut v.id, key);
+    let amt = bal.value();
+    event::emit(Borrowed { vault_id: object::id(v), amount: amt, protocol });
+    (coin::from_balance(bal, ctx), BorrowReceipt { vault_id: object::id(v), amount: amt, protocol })
+}
+
+/// Discharge a receipt by returning redeemed USDC to the vault (does not touch `principal`).
+public fun return_usdc<S>(v: &mut Vault<S>, receipt: BorrowReceipt, c: Coin<S>) {
+    let BorrowReceipt { vault_id, amount: _, protocol: _ } = receipt; // consume potato
+    assert!(vault_id == object::id(v), EWrongVault);
+    v.usdc.join(c.into_balance());
+}
+
 // === Views ===
 public fun idle<S>(v: &Vault<S>): u64 { v.usdc.value() }
 public fun principal<S>(v: &Vault<S>): u64 { v.principal }
