@@ -16,6 +16,8 @@ export function encryptSecret(plain: string): { enc: string; iv: string; tag: st
 
 export function decryptSecret(enc: string, iv: string, tag: string): string {
   const decipher = createDecipheriv("aes-256-gcm", key(), Buffer.from(iv, "hex"));
-  decipher.setAuthTag(Buffer.from(tag, "hex"));
+  const tagBuf = Buffer.from(tag, "hex");
+  if (tagBuf.length !== 16) throw new Error("invalid auth tag length");
+  decipher.setAuthTag(tagBuf);
   return Buffer.concat([decipher.update(Buffer.from(enc, "hex")), decipher.final()]).toString("utf8");
 }

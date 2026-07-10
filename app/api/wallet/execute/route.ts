@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 // Shape confirmed against @mysten/sui@1.45.2: getData().commands is
 //   EnumOutputShapeWithKeys<...>[]  where each element is
 //   { $kind: "MoveCall", MoveCall: { package: string, ... } }  (or other kinds).
-export function isAllowed(tx: Transaction): boolean {
+function isAllowed(tx: Transaction): boolean {
   const data = tx.getData();
   const cmds = data.commands ?? [];
   if (cmds.length === 0) return false;
@@ -35,6 +35,9 @@ export async function POST(req: Request) {
     const res = await suiClient.signAndExecuteTransaction({ signer, transaction: tx, options: { showEffects: true } });
     return NextResponse.json({ digest: res.digest, status: res.effects?.status?.status });
   } catch (e: unknown) {
-    return NextResponse.json({ error: String((e as Error)?.message ?? e) }, { status: 502 });
+    const msg = String((e as Error)?.message ?? e);
+    if (msg.includes("user not found")) return NextResponse.json({ error: "wallet not found" }, { status: 404 });
+    console.error("[wallet/execute]", e);
+    return NextResponse.json({ error: "execution failed" }, { status: 502 });
   }
 }

@@ -18,6 +18,7 @@ export async function GET(req: Request) {
     });
     return res;
   } catch (e: unknown) {
+    console.error("[auth/callback]", e);
     return NextResponse.redirect(`${env("APP_URL")}/app?error=auth`);
   }
 }
