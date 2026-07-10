@@ -1,5 +1,29 @@
 # Talos — Deployment Record
 
+## Sui Mainnet — vault release (package v2, 2026-07-11)
+
+Non-destructive **package upgrade** of the live mainnet package (additive-only: adds the
+`vault` module + `agent_policy::assert_active` / `owner_cap_policy_id`). The existing shared
+objects are **unchanged**, so the on-chain track record (AgentPolicy + Reputation, ~174
+ratings, avg ~89/100) is preserved and continues live.
+
+| Item | Value |
+| --- | --- |
+| **Package ID (v2, latest — use for vault + assert_active)** | `0x9c49978732d2e8cb38f0744f825bc1d5431f34582811bfef6b099c785a22031f` |
+| Original package ID (v1, type lineage — unchanged) | `0x75b7f5d2926f333d8849726655904111420d4f86acb2578274b31338bcf8142c` |
+| Modules | `agent_policy`, `reputation`, **`vault`** |
+| Upgrade tx digest | `5Q3pyNjG6LynHpWbvP9ahXMZJpE7XVaWmRnZZr8A7vVf` |
+| UpgradeCap | `0xdc4c112f8f4f38b8cd64a70a6694e8b64c1cc7a19f21e3ea13432954ef8f19a5` |
+| AgentPolicy (shared, **unchanged**) | `0x16d5c0c966ac8d78992908ada307dc5991fc76ce4915ae499fa91cfe11c1b5b6` |
+| Reputation (shared, **unchanged**) | `0x3928f7b3ab4114a44b0f533ed627c247994894985c91cf05464ab36d161f072a` |
+| Deployer / owner / agent | `0x1f0455e5fb79711dff710e04aa9a7ea4dbb582b77a3a5452fcc61be1cb80ea7f` |
+| Gas spent | ~0.0546 SUI |
+| Built with | Sui CLI 1.74.1 (mainnet-matched); dry-run compatibility = success |
+
+> Migration for the swarm/app: set `TALOS_PACKAGE_ID` to the **v2** id above so `vault`
+> and `assert_active` resolve; keep `TALOS_POLICY_ID` / `TALOS_REPUTATION_ID` as-is (the
+> live objects are preserved). Per-user `create_vault<USDC>` is called by the app, not here.
+
 ## Sui Testnet
 
 | Item | Value |
