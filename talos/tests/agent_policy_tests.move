@@ -189,7 +189,7 @@ fun assert_active_happy_and_cap_id() {
     sc.end();
 }
 
-#[test, expected_failure(abort_code = agent_policy::EOverPerTxCap)]
+#[test, expected_failure(abort_code = agent_policy::EOverPerTxCap, location = talos::agent_policy)]
 fun assert_active_rejects_over_cap() {
     let mut sc = ts::begin(OWNER);
     setup(&mut sc, 1000, 500, 10_000);
@@ -201,7 +201,7 @@ fun assert_active_rejects_over_cap() {
     abort 0
 }
 
-#[test, expected_failure(abort_code = agent_policy::EUnauthorizedAgent)]
+#[test, expected_failure(abort_code = agent_policy::EUnauthorizedAgent, location = talos::agent_policy)]
 fun assert_active_rejects_stranger() {
     let mut sc = ts::begin(OWNER);
     setup(&mut sc, 1000, 500, 10_000);

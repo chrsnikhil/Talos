@@ -33,6 +33,9 @@ public struct Vault<phantom S> has key {
     agent: address,
     policy_id: ID,
     usdc: Balance<S>,
+    /// Best-effort analytics only: increased on deposit, decreased on owner_withdraw_usdc
+    /// (floored at 0), but NOT reduced by return_usdc or owner_withdraw_position.
+    /// It can understate true holdings and MUST NEVER gate a withdrawal decision.
     principal: u64,
     allowed_positions: VecSet<TypeName>,
 }
@@ -124,9 +127,9 @@ public fun borrow_position<S, P>(
     protocol: String, ctx: &mut TxContext,
 ): (Coin<P>, BorrowReceipt) {
     assert!(object::id(policy) == v.policy_id, EWrongVault);
+    agent_policy::assert_active(policy, clock, protocol, 0, ctx);
     let key = PosKey { t: type_name::get<P>() };
     assert!(df::exists_(&v.id, key), ENoSuchPosition);
-    agent_policy::assert_active(policy, clock, protocol, 0, ctx);
     let bal: Balance<P> = df::remove(&mut v.id, key);
     let amt = bal.value();
     event::emit(Borrowed { vault_id: object::id(v), amount: amt, protocol });

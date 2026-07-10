@@ -44,6 +44,7 @@ fun create_and_deposit() {
     sc.next_tx(OWNER);
     {
         let mut v = sc.take_shared<Vault<TUSDC>>();
+        let policy = sc.take_shared<AgentPolicy>();
         assert!(vault::owner(&v) == OWNER, 0);
         assert!(vault::agent(&v) == AGENT, 1);
         assert!(vault::idle(&v) == 0, 2);
@@ -52,12 +53,20 @@ fun create_and_deposit() {
         vault::deposit(&mut v, c);
         assert!(vault::idle(&v) == 500, 3);
         assert!(vault::principal(&v) == 500, 4);
+
+        // view: policy_id matches the shared policy
+        assert!(vault::policy_id(&v) == object::id(&policy), 5);
+        // view: SCOIN is allowed; TUSDC itself is not a position type
+        assert!(vault::allows_position<TUSDC>(&v, &type_name::get<SCOIN>()) == true, 6);
+        assert!(vault::allows_position<TUSDC>(&v, &type_name::get<TUSDC>()) == false, 7);
+
+        ts::return_shared(policy);
         ts::return_shared(v);
     };
     sc.end();
 }
 
-#[test, expected_failure(abort_code = vault::ENotOwner)]
+#[test, expected_failure(abort_code = vault::ENotOwner, location = talos::vault)]
 fun stranger_cannot_create_vault() {
     let mut sc = ts::begin(OWNER);
     {
@@ -109,7 +118,7 @@ fun supply_moves_usdc_out_and_position_in() {
     sc.end();
 }
 
-#[test, expected_failure(abort_code = vault::EPositionNotAllowed)]
+#[test, expected_failure(abort_code = vault::EPositionNotAllowed, location = talos::vault)]
 fun return_rejects_unlisted_position() {
     let mut sc = ts::begin(OWNER);
     setup(&mut sc);
@@ -214,7 +223,7 @@ fun owner_withdraws_usdc_and_raw_position() {
     sc.end();
 }
 
-#[test, expected_failure(abort_code = vault::ENotOwner)]
+#[test, expected_failure(abort_code = vault::ENotOwner, location = talos::vault)]
 fun stranger_cap_cannot_withdraw() {
     let mut sc = ts::begin(OWNER);
     setup(&mut sc);
@@ -239,7 +248,7 @@ fun stranger_cap_cannot_withdraw() {
     abort 0
 }
 
-#[test, expected_failure(abort_code = talos::agent_policy::ERevoked)]
+#[test, expected_failure(abort_code = talos::agent_policy::ERevoked, location = talos::agent_policy)]
 fun agent_locked_out_after_panic_freeze() {
     let mut sc = ts::begin(OWNER);
     setup(&mut sc);
@@ -270,7 +279,7 @@ fun agent_locked_out_after_panic_freeze() {
     abort 0
 }
 
-#[test, expected_failure(abort_code = vault::EInsufficientIdle)]
+#[test, expected_failure(abort_code = vault::EInsufficientIdle, location = talos::vault)]
 fun cannot_borrow_more_than_idle() {
     let mut sc = ts::begin(OWNER);
     setup(&mut sc);
@@ -291,7 +300,7 @@ fun cannot_borrow_more_than_idle() {
     abort 0
 }
 
-#[test, expected_failure(abort_code = vault::ENoSuchPosition)]
+#[test, expected_failure(abort_code = vault::ENoSuchPosition, location = talos::vault)]
 fun owner_withdraw_missing_position_aborts() {
     let mut sc = ts::begin(OWNER);
     setup(&mut sc);
@@ -303,7 +312,7 @@ fun owner_withdraw_missing_position_aborts() {
     abort 0
 }
 
-#[test, expected_failure(abort_code = agent_policy::EExpired)]
+#[test, expected_failure(abort_code = agent_policy::EExpired, location = talos::agent_policy)]
 fun agent_cannot_borrow_after_expiry() {
     let mut sc = ts::begin(OWNER);
     setup(&mut sc);
@@ -324,7 +333,7 @@ fun agent_cannot_borrow_after_expiry() {
     abort 0
 }
 
-#[test, expected_failure(abort_code = agent_policy::EOverPerTxCap)]
+#[test, expected_failure(abort_code = agent_policy::EOverPerTxCap, location = talos::agent_policy)]
 fun borrow_rejects_over_per_tx_cap() {
     let mut sc = ts::begin(OWNER);
     setup(&mut sc);

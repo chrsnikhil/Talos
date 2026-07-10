@@ -19,3 +19,7 @@
   oracle). Contained by: protocol allowlist, position-type allowlist, small per-policy caps,
   and Daedalus scoring every move. Oracle value-check is future hardening.
 - Owner escape hatch on a dead agent yields the raw sCoin (redeem off-chain), by design.
+- Cap asymmetry: the SUPPLY leg (`borrow_for_supply`) is bounded by `per_tx_cap` + idle
+  balance, but the UNWIND leg (`borrow_position`) passes `amount = 0` to `assert_active`, so
+  `per_tx_cap` does NOT bound how much a position unwind can move — it is contained only by
+  the position-type allowlist and off-chain critic scoring.
