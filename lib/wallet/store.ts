@@ -12,8 +12,16 @@ export async function getOrCreateUser(sub: string, email: string): Promise<{ add
   const kp = Ed25519Keypair.generate();
   const address = kp.toSuiAddress();
   const { enc, iv, tag } = encryptSecret(kp.getSecretKey()); // bech32 suiprivkey string
-  await col.insertOne({ sub, email, address, encPrivKey: enc, iv, tag, createdAt: new Date() });
-  await dripGas(address).catch(() => null); // best-effort; never block signup on gas
+  try {
+    await col.insertOne({ sub, email, address, encPrivKey: enc, iv, tag, createdAt: new Date() });
+  } catch (e: unknown) {
+    if ((e as { code?: number })?.code === 11000) {
+      const again = await col.findOne({ sub });
+      if (again) return { address: again.address, created: false };
+    }
+    throw e;
+  }
+  await dripGas(address).catch((err) => console.error("[dripGas] failed:", err)); // best-effort; never block signup on gas
   return { address, created: true };
 }
 
