@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useVault } from "@/lib/wallet/use-vault";
 import {
   buildDeposit,
@@ -29,31 +29,31 @@ const S = {
     maxWidth: 480,
     width: "100%",
     marginTop: 24,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   label: {
     color: "#8b98ab",
     fontSize: 12,
     marginBottom: 2,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   value: {
     color: "#e8eef7",
     fontSize: 14,
     marginBottom: 12,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   accentValue: {
     color: "#28d391",
     fontSize: 14,
     marginBottom: 12,
     fontWeight: "bold",
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   divider: {
     borderTop: "1px solid #1e2d3d",
     margin: "16px 0",
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   input: {
     background: "#0d1319",
@@ -66,7 +66,7 @@ const S = {
     boxSizing: "border-box" as const,
     marginBottom: 8,
     outline: "none",
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   btn: {
     background: "transparent",
@@ -77,12 +77,12 @@ const S = {
     fontSize: 13,
     cursor: "pointer",
     marginTop: 4,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   btnDisabled: {
     opacity: 0.4,
     cursor: "not-allowed",
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   panicBtn: {
     background: "#ff2020",
@@ -95,7 +95,7 @@ const S = {
     cursor: "pointer",
     marginTop: 8,
     letterSpacing: "0.05em",
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   confirmPanicBtn: {
     background: "#ff2020",
@@ -108,20 +108,20 @@ const S = {
     cursor: "pointer",
     marginTop: 8,
     letterSpacing: "0.05em",
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   error: {
     color: "#ff6b6b",
     fontSize: 12,
     marginTop: 8,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   digestLink: {
     color: "#28d391",
     fontSize: 12,
     marginTop: 8,
     wordBreak: "break-all" as const,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   sectionTitle: {
     color: "#8b98ab",
@@ -129,7 +129,7 @@ const S = {
     letterSpacing: "0.1em",
     textTransform: "uppercase" as const,
     marginBottom: 10,
-  } as React.CSSProperties,
+  } as CSSProperties,
 };
 
 // ─── VaultPanel ───────────────────────────────────────────────────────────────
@@ -250,7 +250,7 @@ export default function VaultPanel() {
           policyId: vault.policyId!,
           vaultId: vault.vaultId!,
           ownerCapId: vault.ownerCapId!,
-          amount: BigInt(vault.idleUsdc ?? 0),
+          amount: BigInt(vault.idleUsdc && vault.idleUsdc !== "" ? vault.idleUsdc : "0"),
           sender: vault.owner!,
         })
       );
