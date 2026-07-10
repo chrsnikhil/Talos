@@ -44,6 +44,14 @@ public struct PosKey has copy, drop, store { t: TypeName }
 public struct VaultCreated has copy, drop { vault_id: ID, owner: address, agent: address, policy_id: ID }
 public struct Deposited has copy, drop { vault_id: ID, amount: u64, principal: u64 }
 
+/// Hot potato: created when the agent borrows from the vault, destroyed only by returning
+/// value into the vault in the same PTB. Has NO abilities, so the transaction cannot end
+/// while it is unresolved — the agent can never walk away holding borrowed funds.
+public struct BorrowReceipt { vault_id: ID, amount: u64, protocol: String }
+
+public struct Borrowed has copy, drop { vault_id: ID, amount: u64, protocol: String }
+public struct PositionReturned has copy, drop { vault_id: ID, position: TypeName, amount: u64 }
+
 // === Creation ===
 
 /// Create and share a Vault bound to `policy`. Only the policy owner may call.
@@ -76,6 +84,37 @@ public fun deposit<S>(v: &mut Vault<S>, c: Coin<S>) {
     event::emit(Deposited { vault_id: object::id(v), amount: amt, principal: v.principal });
 }
 
+/// Agent pulls `amount` USDC out to supply into `protocol`, receiving a hot-potato receipt
+/// that MUST be discharged via `return_position` (or `return_usdc`) in the same PTB.
+public fun borrow_for_supply<S>(
+    v: &mut Vault<S>, policy: &AgentPolicy, clock: &Clock,
+    amount: u64, protocol: String, ctx: &mut TxContext,
+): (Coin<S>, BorrowReceipt) {
+    assert!(object::id(policy) == v.policy_id, EWrongVault);
+    agent_policy::assert_active(policy, clock, protocol, amount, ctx);
+    assert!(v.usdc.value() >= amount, EInsufficientIdle);
+    let c = coin::from_balance(v.usdc.split(amount), ctx);
+    event::emit(Borrowed { vault_id: object::id(v), amount, protocol });
+    (c, BorrowReceipt { vault_id: object::id(v), amount, protocol })
+}
+
+/// Discharge a receipt by depositing an allowlisted lending position back into the vault.
+public fun return_position<S, P>(v: &mut Vault<S>, receipt: BorrowReceipt, position: Coin<P>) {
+    let BorrowReceipt { vault_id, amount: _, protocol: _ } = receipt; // consume potato
+    assert!(vault_id == object::id(v), EWrongVault);
+    let t = type_name::get<P>();
+    assert!(v.allowed_positions.contains(&t), EPositionNotAllowed);
+    let key = PosKey { t };
+    let amt = position.value();
+    if (df::exists_(&v.id, key)) {
+        let bal: &mut Balance<P> = df::borrow_mut(&mut v.id, key);
+        bal.join(position.into_balance());
+    } else {
+        df::add(&mut v.id, key, position.into_balance());
+    };
+    event::emit(PositionReturned { vault_id, position: t, amount: amt });
+}
+
 // === Views ===
 public fun idle<S>(v: &Vault<S>): u64 { v.usdc.value() }
 public fun principal<S>(v: &Vault<S>): u64 { v.principal }
@@ -83,3 +122,8 @@ public fun owner<S>(v: &Vault<S>): address { v.owner }
 public fun agent<S>(v: &Vault<S>): address { v.agent }
 public fun policy_id<S>(v: &Vault<S>): ID { v.policy_id }
 public fun allows_position<S>(v: &Vault<S>, t: &TypeName): bool { v.allowed_positions.contains(t) }
+public fun has_position<S, P>(v: &Vault<S>): bool { df::exists_(&v.id, PosKey { t: type_name::get<P>() }) }
+public fun position_value<S, P>(v: &Vault<S>): u64 {
+    let key = PosKey { t: type_name::get<P>() };
+    if (df::exists_(&v.id, key)) { let b: &Balance<P> = df::borrow(&v.id, key); b.value() } else { 0 }
+}

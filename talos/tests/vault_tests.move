@@ -70,3 +70,65 @@ fun stranger_cannot_create_vault() {
     vault::create_vault<TUSDC>(&policy, vector[type_name::get<SCOIN>()], sc.ctx());
     abort 0
 }
+
+#[test]
+fun supply_moves_usdc_out_and_position_in() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc);
+
+    // fund the vault
+    sc.next_tx(OWNER);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        vault::deposit(&mut v, coin::mint_for_testing<TUSDC>(1000, sc.ctx()));
+        ts::return_shared(v);
+    };
+
+    // agent supplies 400 USDC to "scallop", returns an SCOIN position of 390
+    sc.next_tx(AGENT);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        let policy = sc.take_shared<AgentPolicy>();
+        let mut clk = clock::create_for_testing(sc.ctx());
+        clk.set_for_testing(0);
+
+        let (usdc_out, receipt) =
+            vault::borrow_for_supply(&mut v, &policy, &clk, 400, string::utf8(b"scallop"), sc.ctx());
+        assert!(coin::value(&usdc_out) == 400, 0);
+        assert!(vault::idle(&v) == 600, 1);
+        // the venue "consumes" the USDC and hands back a receipt coin
+        coin::burn_for_testing(usdc_out);
+        let scoin = coin::mint_for_testing<SCOIN>(390, sc.ctx());
+        vault::return_position(&mut v, receipt, scoin);
+        assert!(vault::position_value<TUSDC, SCOIN>(&v) == 390, 2);
+
+        clk.destroy_for_testing();
+        ts::return_shared(policy);
+        ts::return_shared(v);
+    };
+    sc.end();
+}
+
+#[test, expected_failure(abort_code = vault::EPositionNotAllowed)]
+fun return_rejects_unlisted_position() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc);
+    sc.next_tx(OWNER);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        vault::deposit(&mut v, coin::mint_for_testing<TUSDC>(1000, sc.ctx()));
+        ts::return_shared(v);
+    };
+    sc.next_tx(AGENT);
+    let mut v = sc.take_shared<Vault<TUSDC>>();
+    let policy = sc.take_shared<AgentPolicy>();
+    let mut clk = clock::create_for_testing(sc.ctx());
+    clk.set_for_testing(0);
+    let (usdc_out, receipt) =
+        vault::borrow_for_supply(&mut v, &policy, &clk, 100, string::utf8(b"scallop"), sc.ctx());
+    coin::burn_for_testing(usdc_out);
+    // TUSDC is not an allowed position type → abort
+    let bad = coin::mint_for_testing<TUSDC>(100, sc.ctx());
+    vault::return_position(&mut v, receipt, bad);
+    abort 0
+}
