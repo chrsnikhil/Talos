@@ -1,5 +1,6 @@
 "use client";
 import SignIn from "@/components/wallet/sign-in";
+import VaultPanel from "@/components/wallet/vault-panel";
 import { useManagedWallet } from "@/lib/wallet/use-managed-wallet";
 
 export default function AppHome() {
@@ -12,7 +13,7 @@ export default function AppHome() {
         <section data-testid="wallet" style={{ textAlign: "center", opacity: 0.85 }}>
           <p>your embedded wallet</p>
           <code>{address}</code>
-          <p style={{ marginTop: 12, color: "#28d391" }}>vault UI mounts here (todo 7)</p>
+          <VaultPanel />
         </section>
       )}
     </main>
