@@ -43,6 +43,7 @@ public struct PosKey has copy, drop, store { t: TypeName }
 // === Events ===
 public struct VaultCreated has copy, drop { vault_id: ID, owner: address, agent: address, policy_id: ID }
 public struct Deposited has copy, drop { vault_id: ID, amount: u64, principal: u64 }
+public struct OwnerWithdrew has copy, drop { vault_id: ID, amount: u64, position: bool }
 
 /// Hot potato: created when the agent borrows from the vault, destroyed only by returning
 /// value into the vault in the same PTB. Has NO abilities, so the transaction cannot end
@@ -137,6 +138,31 @@ public fun return_usdc<S>(v: &mut Vault<S>, receipt: BorrowReceipt, c: Coin<S>) 
     let BorrowReceipt { vault_id, amount: _, protocol: _ } = receipt; // consume potato
     assert!(vault_id == object::id(v), EWrongVault);
     v.usdc.join(c.into_balance());
+}
+
+// === Owner withdrawals ===
+
+/// Owner reclaims idle USDC to their wallet. Works at any time, agent or not.
+public fun owner_withdraw_usdc<S>(
+    v: &mut Vault<S>, cap: &OwnerCap, amount: u64, ctx: &mut TxContext,
+): Coin<S> {
+    assert!(agent_policy::owner_cap_policy_id(cap) == v.policy_id, ENotOwner);
+    assert!(v.usdc.value() >= amount, EInsufficientIdle);
+    v.principal = if (v.principal >= amount) { v.principal - amount } else { 0 };
+    event::emit(OwnerWithdrew { vault_id: object::id(v), amount, position: false });
+    coin::from_balance(v.usdc.split(amount), ctx)
+}
+
+/// Owner reclaims a raw lending receipt to their wallet — the agent-independent escape hatch.
+public fun owner_withdraw_position<S, P>(
+    v: &mut Vault<S>, cap: &OwnerCap, ctx: &mut TxContext,
+): Coin<P> {
+    assert!(agent_policy::owner_cap_policy_id(cap) == v.policy_id, ENotOwner);
+    let key = PosKey { t: type_name::get<P>() };
+    assert!(df::exists_(&v.id, key), ENoSuchPosition);
+    let bal: Balance<P> = df::remove(&mut v.id, key);
+    event::emit(OwnerWithdrew { vault_id: object::id(v), amount: bal.value(), position: true });
+    coin::from_balance(bal, ctx)
 }
 
 // === Views ===

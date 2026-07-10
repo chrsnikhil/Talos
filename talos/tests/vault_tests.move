@@ -168,3 +168,73 @@ fun unwind_moves_position_out_and_usdc_in() {
     };
     sc.end();
 }
+
+#[test]
+fun owner_withdraws_usdc_and_raw_position() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc);
+    sc.next_tx(OWNER);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        vault::deposit(&mut v, coin::mint_for_testing<TUSDC>(1000, sc.ctx()));
+        ts::return_shared(v);
+    };
+    // agent parks 400 as an SCOIN position
+    sc.next_tx(AGENT);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        let policy = sc.take_shared<AgentPolicy>();
+        let mut clk = clock::create_for_testing(sc.ctx());
+        clk.set_for_testing(0);
+        let (u, r) = vault::borrow_for_supply(&mut v, &policy, &clk, 400, string::utf8(b"scallop"), sc.ctx());
+        coin::burn_for_testing(u);
+        vault::return_position(&mut v, r, coin::mint_for_testing<SCOIN>(400, sc.ctx()));
+        clk.destroy_for_testing();
+        ts::return_shared(policy);
+        ts::return_shared(v);
+    };
+    // owner reclaims idle USDC AND the raw SCOIN, no agent involved
+    sc.next_tx(OWNER);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        let cap = sc.take_from_sender<OwnerCap>();
+        let got = vault::owner_withdraw_usdc(&mut v, &cap, 600, sc.ctx());
+        assert!(coin::value(&got) == 600, 0);
+        assert!(vault::idle(&v) == 0, 1);
+        coin::burn_for_testing(got);
+
+        let scoin = vault::owner_withdraw_position<TUSDC, SCOIN>(&mut v, &cap, sc.ctx());
+        assert!(coin::value(&scoin) == 400, 2);
+        assert!(vault::has_position<TUSDC, SCOIN>(&v) == false, 3);
+        coin::burn_for_testing(scoin);
+
+        sc.return_to_sender(cap);
+        ts::return_shared(v);
+    };
+    sc.end();
+}
+
+#[test, expected_failure(abort_code = vault::ENotOwner)]
+fun stranger_cap_cannot_withdraw() {
+    let mut sc = ts::begin(OWNER);
+    setup(&mut sc);
+    // give STRANGER a foreign policy + OwnerCap
+    sc.next_tx(STRANGER);
+    {
+        let ctx = sc.ctx();
+        let cap = agent_policy::create_policy(AGENT, 10, 10, protos(), 10_000, ctx);
+        transfer::public_transfer(cap, STRANGER);
+    };
+    sc.next_tx(OWNER);
+    {
+        let mut v = sc.take_shared<Vault<TUSDC>>();
+        vault::deposit(&mut v, coin::mint_for_testing<TUSDC>(100, sc.ctx()));
+        ts::return_shared(v);
+    };
+    sc.next_tx(STRANGER);
+    let mut v = sc.take_shared<Vault<TUSDC>>();
+    let cap = sc.take_from_sender<OwnerCap>();
+    let got = vault::owner_withdraw_usdc(&mut v, &cap, 100, sc.ctx()); // wrong policy → ENotOwner
+    coin::burn_for_testing(got);
+    abort 0
+}
