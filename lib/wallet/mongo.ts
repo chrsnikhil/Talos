@@ -14,6 +14,8 @@ export type UserDoc = {
   principal?: number;
   /** Alias for principal stored by older code paths. */
   vaultPrincipal?: number;
+  /** MCP connector token version. Bump to revoke all issued MCP bearer tokens. */
+  mcpTokenVersion?: number;
 };
 
 let clientPromise: Promise<MongoClient> | null = null;
