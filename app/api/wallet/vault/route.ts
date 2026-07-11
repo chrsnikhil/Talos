@@ -5,6 +5,30 @@ import { users } from "@/lib/wallet/mongo";
 import { suiClient, PACKAGE_ID, AGENT_POLICY_PKG } from "@/lib/wallet/config";
 export const runtime = "nodejs";
 
+/** getObject with a small retry so a single RPC hiccup doesn't zero out real balances. */
+async function getObjectRetry(id: string, tries = 3) {
+  let lastErr: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await suiClient.getObject({ id, options: { showContent: true } });
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
+}
+
+/** Vault.usdc is a Balance<S> — { fields: { value } } — or occasionally a bare number. */
+function parseIdle(vf: Record<string, unknown>): string {
+  const usdcRaw = vf["usdc"];
+  if (usdcRaw && typeof usdcRaw === "object" && "fields" in (usdcRaw as object)) {
+    const v = (usdcRaw as Record<string, { value?: unknown }>)["fields"]?.value;
+    return String(v ?? "0");
+  }
+  if (typeof usdcRaw === "string" || typeof usdcRaw === "number") return String(usdcRaw);
+  return "0";
+}
+
 export async function GET() {
   // --- Auth ---
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
@@ -13,157 +37,144 @@ export async function GET() {
 
   const u = await (await users()).findOne({ sub: session.sub });
   if (!u) return NextResponse.json({ error: "no wallet" }, { status: 404 });
-
   const address = u.address;
 
   try {
-    // --- Step 1: Find OwnerCap among owned objects ---
-    // OwnerCap's type origin is the v1 package (agent_policy was defined there and
-    // upgrades preserve type origin), so filter by AGENT_POLICY_PKG, not PACKAGE_ID.
+    // --- Step 1: collect ALL OwnerCaps (user may hold several from earlier retries) ---
+    // OwnerCap's type origin is the v1 package (upgrades preserve type origin).
     const ownerCapType = `${AGENT_POLICY_PKG}::agent_policy::OwnerCap`;
+    const caps: { ownerCapId: string; policyId: string }[] = [];
     let cursor: string | null | undefined = undefined;
-    let ownerCapId: string | null = null;
-    let policyId: string | null = null;
-
-    outer: while (true) {
+    while (true) {
       const page = await suiClient.getOwnedObjects({
         owner: address,
         filter: { StructType: ownerCapType },
         options: { showContent: true },
         cursor,
       });
-
       for (const item of page.data) {
-        if (
-          item.data?.content?.dataType === "moveObject" &&
-          item.data.content.fields &&
-          typeof item.data.content.fields === "object"
-        ) {
-          const fields = item.data.content.fields as Record<string, unknown>;
-          ownerCapId = item.data.objectId;
-          policyId = fields["policy_id"] as string;
-          break outer;
+        const fields =
+          item.data?.content?.dataType === "moveObject" && item.data.content.fields
+            ? (item.data.content.fields as Record<string, unknown>)
+            : null;
+        if (fields && item.data) {
+          caps.push({ ownerCapId: item.data.objectId, policyId: String(fields["policy_id"]) });
         }
       }
-
       if (!page.hasNextPage) break;
       cursor = page.nextCursor ?? undefined;
     }
+    if (caps.length === 0) return NextResponse.json({ exists: false });
 
-    if (!ownerCapId || !policyId) {
-      return NextResponse.json({ exists: false });
-    }
-
-    // --- Step 2: Load AgentPolicy shared object ---
-    let owner: string | null = null;
-    let agent: string | null = null;
-    let remainingBudget: string = "0";
-    let revoked: boolean = false;
-    let expiresAtMs: string = "0";
-
-    try {
-      const policyObj = await suiClient.getObject({
-        id: policyId,
-        options: { showContent: true },
-      });
-
-      if (
-        policyObj.data?.content?.dataType === "moveObject" &&
-        policyObj.data.content.fields &&
-        typeof policyObj.data.content.fields === "object"
-      ) {
-        const f = policyObj.data.content.fields as Record<string, unknown>;
-        owner = f["owner"] as string;
-        agent = f["agent"] as string;
-        remainingBudget = String(f["remaining_budget"] ?? "0");
-        revoked = Boolean(f["revoked"]);
-        expiresAtMs = String(f["expires_at_ms"] ?? "0");
-      }
-    } catch (err) {
-      console.error("[vault/route] Failed to load AgentPolicy", policyId, err);
-    }
-
-    // --- Step 3: Find Vault via VaultCreated events filtered by policy_id ---
-    let vaultId: string | null = null;
-    let idleUsdc: string = "0";
-    let principal: string = "0";
-
-    try {
+    // --- Step 2: single VaultCreated scan → policyId → vaultId map ---
+    const policyToVault = new Map<string, string>();
+    {
       const eventType = `${PACKAGE_ID}::vault::VaultCreated`;
       let evCursor: { txDigest: string; eventSeq: string } | null | undefined = null;
-      let found = false;
-      const MAX_PAGES = 20;
-      let pageCount = 0;
-
-      while (!found && pageCount < MAX_PAGES) {
+      for (let pageCount = 0; pageCount < 20; pageCount++) {
         const evPage = await suiClient.queryEvents({
           query: { MoveEventType: eventType },
           cursor: evCursor,
           limit: 50,
           order: "descending",
         });
-
-        pageCount++;
-
         for (const ev of evPage.data) {
           const parsed = ev.parsedJson as Record<string, unknown> | undefined;
-          if (parsed && parsed["policy_id"] === policyId) {
-            vaultId = parsed["vault_id"] as string;
-            found = true;
-            break;
-          }
+          const pid = parsed ? String(parsed["policy_id"]) : "";
+          const vid = parsed ? String(parsed["vault_id"]) : "";
+          if (pid && vid && !policyToVault.has(pid)) policyToVault.set(pid, vid);
         }
-
-        if (found || !evPage.hasNextPage) break;
-        evCursor = evPage.nextCursor ?? undefined;
+        if (!evPage.hasNextPage || !evPage.nextCursor) break;
+        evCursor = evPage.nextCursor;
       }
-
-      if (!found && pageCount >= MAX_PAGES) {
-        console.warn("[vault/route] VaultCreated event not found within MAX_PAGES limit", { policyId, pageCount });
-      }
-
-      // --- Step 3b: Load Vault object for balances ---
-      if (vaultId) {
-        const vaultObj = await suiClient.getObject({
-          id: vaultId,
-          options: { showContent: true },
-        });
-
-        if (
-          vaultObj.data?.content?.dataType === "moveObject" &&
-          vaultObj.data.content.fields &&
-          typeof vaultObj.data.content.fields === "object"
-        ) {
-          const vf = vaultObj.data.content.fields as Record<string, unknown>;
-          // usdc is a Balance<S> represented as { fields: { value: "..." } } or just a number
-          const usdcRaw = vf["usdc"];
-          if (usdcRaw && typeof usdcRaw === "object" && "fields" in (usdcRaw as object)) {
-            idleUsdc = String((usdcRaw as Record<string, unknown>)["fields"]
-              ? ((usdcRaw as Record<string, { value?: unknown }>)["fields"])?.value ?? "0"
-              : "0");
-          } else if (typeof usdcRaw === "string" || typeof usdcRaw === "number") {
-            idleUsdc = String(usdcRaw);
-          }
-          principal = String(vf["principal"] ?? "0");
-        }
-      }
-    } catch (err) {
-      console.error("[vault/route] Failed to resolve vault", err);
     }
+
+    // --- Step 3: resolve every cap to a full candidate (policy + its vault balances) ---
+    type Cand = {
+      ownerCapId: string;
+      policyId: string;
+      vaultId: string | null;
+      idleUsdc: string;
+      principal: string;
+      remainingBudget: string;
+      revoked: boolean;
+      expiresAtMs: string;
+      owner: string | null;
+      agent: string | null;
+    };
+
+    const candidates: Cand[] = await Promise.all(
+      caps.map(async ({ ownerCapId, policyId }) => {
+        let remainingBudget = "0",
+          expiresAtMs = "0",
+          owner: string | null = null,
+          agent: string | null = null,
+          revoked = false;
+        try {
+          const p = await getObjectRetry(policyId);
+          const f =
+            p.data?.content?.dataType === "moveObject" ? (p.data.content.fields as Record<string, unknown>) : null;
+          if (f) {
+            owner = String(f["owner"]);
+            agent = String(f["agent"]);
+            remainingBudget = String(f["remaining_budget"] ?? "0");
+            revoked = Boolean(f["revoked"]);
+            expiresAtMs = String(f["expires_at_ms"] ?? "0");
+          }
+        } catch (err) {
+          console.error("[vault/route] policy read failed", policyId, err);
+        }
+
+        const vaultId = policyToVault.get(policyId) ?? null;
+        let idleUsdc = "0",
+          principal = "0";
+        if (vaultId) {
+          try {
+            const vobj = await getObjectRetry(vaultId);
+            const vf =
+              vobj.data?.content?.dataType === "moveObject"
+                ? (vobj.data.content.fields as Record<string, unknown>)
+                : null;
+            if (vf) {
+              idleUsdc = parseIdle(vf);
+              principal = String(vf["principal"] ?? "0");
+            }
+          } catch (err) {
+            console.error("[vault/route] vault read failed", vaultId, err);
+          }
+        }
+        return { ownerCapId, policyId, vaultId, idleUsdc, principal, remainingBudget, revoked, expiresAtMs, owner, agent };
+      }),
+    );
+
+    // --- Step 4: deterministic pick — active (not revoked) with a vault, then most funds,
+    // then stable tie-break by policyId. Guarantees the same vault every load. ---
+    candidates.sort((a, b) => {
+      const hasVault = (a.vaultId ? 1 : 0) - (b.vaultId ? 1 : 0);
+      if (hasVault) return -hasVault;
+      const active = (a.revoked ? 0 : 1) - (b.revoked ? 0 : 1);
+      if (active) return -active;
+      const funds = Number(a.idleUsdc) + Number(a.principal) - (Number(b.idleUsdc) + Number(b.principal));
+      if (funds) return -funds;
+      return a.policyId < b.policyId ? -1 : a.policyId > b.policyId ? 1 : 0;
+    });
+    const best = candidates[0];
 
     return NextResponse.json({
       exists: true,
       address,
-      ownerCapId,
-      policyId,
-      vaultId,
-      idleUsdc,
-      principal,
-      revoked,
-      remainingBudget,
-      expiresAtMs,
-      owner,
-      agent,
+      ownerCapId: best.ownerCapId,
+      policyId: best.policyId,
+      vaultId: best.vaultId,
+      idleUsdc: best.idleUsdc,
+      principal: best.principal,
+      revoked: best.revoked,
+      remainingBudget: best.remainingBudget,
+      expiresAtMs: best.expiresAtMs,
+      owner: best.owner,
+      agent: best.agent,
+      // How many policies/vaults this wallet holds (>1 = leftover duplicates from earlier retries).
+      policyCount: candidates.length,
     });
   } catch (err) {
     console.error("[vault/route] Unexpected error", err);

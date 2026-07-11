@@ -153,6 +153,16 @@ export function VaultBento() {
     loadWalletUsdc()
   }, [loadWalletUsdc, vault?.idleUsdc])
 
+  // Poll vault state so balance/budget stay live and self-heal a stale first read
+  // (the route silently defaults to 0 if a single policy/vault RPC read hiccups).
+  useEffect(() => {
+    if (!address) return
+    const id = setInterval(() => {
+      refresh()
+    }, 8000)
+    return () => clearInterval(id)
+  }, [address, refresh])
+
   const idle = vault?.idleUsdc
   const canPanic = vault?.exists && !vault?.revoked
 
