@@ -90,14 +90,18 @@ export async function GET() {
       const eventType = `${PACKAGE_ID}::vault::VaultCreated`;
       let evCursor: { txDigest: string; eventSeq: string } | null | undefined = null;
       let found = false;
+      const MAX_PAGES = 20;
+      let pageCount = 0;
 
-      while (!found) {
+      while (!found && pageCount < MAX_PAGES) {
         const evPage = await suiClient.queryEvents({
           query: { MoveEventType: eventType },
           cursor: evCursor,
           limit: 50,
           order: "descending",
         });
+
+        pageCount++;
 
         for (const ev of evPage.data) {
           const parsed = ev.parsedJson as Record<string, unknown> | undefined;
@@ -110,6 +114,10 @@ export async function GET() {
 
         if (found || !evPage.hasNextPage) break;
         evCursor = evPage.nextCursor ?? undefined;
+      }
+
+      if (!found && pageCount >= MAX_PAGES) {
+        console.warn("[vault/route] VaultCreated event not found within MAX_PAGES limit", { policyId, pageCount });
       }
 
       // --- Step 3b: Load Vault object for balances ---

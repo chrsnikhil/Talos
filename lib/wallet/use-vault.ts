@@ -108,12 +108,13 @@ export function useVault(): UseVaultReturn {
   );
 
   /**
-   * Two-step vault creation:
-   *   1. Build + execute `agent_policy::create_policy_entry`.
-   *   2. Poll `/api/wallet/vault` until the OwnerCap resolves to a policyId.
-   *   3. Build + execute `vault::create_vault<USDC>` with that policyId.
+   * Two-step vault creation — idempotent:
+   *   - If a policyId already exists but no vault yet → skip to step 2.
+   *   - If neither exists → step 1 (create policy) then step 2 (create vault).
+   *   - If both exist → no-op.
    *
-   * Guards against double-runs with `busy`.
+   * Prevents minting a duplicate AgentPolicy + OwnerCap on retry after step2
+   * failure. Guards against double-runs with `busy`.
    */
   const createVault = useCallback(async () => {
     if (busy) return;
@@ -121,46 +122,53 @@ export function useVault(): UseVaultReturn {
 
     setBusy(true);
     try {
-      // ── Step 1: create the agent policy ──────────────────────────────────
-      const policyTx = buildCreatePolicy({
-        agent: TALOS_AGENT,
-        budget: DEFAULT_BUDGET,
-        perTxCap: DEFAULT_PER_TX_CAP,
-        protocols: DEFAULT_PROTOCOLS,
-        expiresAtMs: Date.now() + THIRTY_DAYS_MS,
-      });
+      // ── Pre-check: fetch current state to determine where to resume ───────
+      const preRes = await fetch("/api/wallet/vault");
+      const preData: VaultState = preRes.ok ? await preRes.json() : { exists: false };
+      setVault(preData);
 
-      await execute(policyTx);
+      // Already fully created — nothing to do.
+      if (preData.exists && preData.policyId && preData.vaultId) return;
 
-      // ── Step 2: poll until policyId is visible on-chain ──────────────────
-      let policyId: string | null = null;
-
-      for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
-        await refresh();
-        // After refresh, read the current vault state from the latest state.
-        // We use a functional state read via a local re-fetch to avoid stale closure.
-        const res = await fetch("/api/wallet/vault");
-        if (res.ok) {
-          const data: VaultState = await res.json();
-          if (data.exists && data.policyId) {
-            policyId = data.policyId;
-            setVault(data);
-            break;
-          }
-        }
-        if (i < MAX_POLL_ATTEMPTS - 1) {
-          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-        }
-      }
+      let policyId: string | null = preData.policyId ?? null;
 
       if (!policyId) {
-        throw new Error(
-          "Policy not found after creation — chain indexing may be delayed. " +
-            "Refresh the page and try again."
-        );
+        // ── Step 1: create the agent policy ────────────────────────────────
+        const policyTx = buildCreatePolicy({
+          agent: TALOS_AGENT,
+          budget: DEFAULT_BUDGET,
+          perTxCap: DEFAULT_PER_TX_CAP,
+          protocols: DEFAULT_PROTOCOLS,
+          expiresAtMs: Date.now() + THIRTY_DAYS_MS,
+        });
+
+        await execute(policyTx);
+
+        // ── Step 2: poll until policyId is visible on-chain ────────────────
+        for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
+          // Avoid redundant delay on first iteration.
+          if (i > 0) await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+
+          const res = await fetch("/api/wallet/vault");
+          if (res.ok) {
+            const data: VaultState = await res.json();
+            if (data.policyId) {
+              policyId = data.policyId;
+              setVault(data);
+              break;
+            }
+          }
+        }
+
+        if (!policyId) {
+          throw new Error(
+            "Policy not found after creation — chain indexing may be delayed. " +
+              "Refresh the page and try again."
+          );
+        }
       }
 
-      // ── Step 3: create the vault ──────────────────────────────────────────
+      // ── Step 3: create the vault (policyId is known) ─────────────────────
       const vaultTx = buildCreateVault({
         policyId,
         allowedPositions: [],
