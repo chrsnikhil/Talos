@@ -275,7 +275,7 @@ export async function runMultiUserCycle(n: number): Promise<void> {
         n,
         ts,
         apys,
-        from: vaultCurrent,
+        from: v.currentVenue,
         action: rawDecision.action,
         target: rawDecision.target,
         amount: rawDecision.amount,
