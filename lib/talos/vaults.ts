@@ -22,9 +22,33 @@
  * - Any error in the whole function returns [] and logs — never throws into the swarm loop.
  */
 
-import type { EventId } from "@mysten/sui/client"
-import { client, PACKAGE_ID, AGENT_ADDRESS } from "./config"
+import { SuiClient, type EventId } from "@mysten/sui/client"
+import { PACKAGE_ID, AGENT_ADDRESS } from "./config"
 import { users } from "../wallet/mongo"
+
+// The default fullnode (geo-load-balanced) routes some regions to a replica that hasn't
+// indexed the newer v2 `vault` module — returning 0 VaultCreated events AND policy/vault
+// objects with empty content — so the swarm would see "no active vaults" even when funded
+// ones exist. Read ALL vault/policy state for the enumerator from a dedicated,
+// consistently-indexed endpoint (override with TALOS_EVENT_RPC). The flagship loop keeps
+// the default RPC untouched. If this endpoint is down the scan returns [] that tick (safe —
+// multi-user no-ops, flagship unaffected).
+const VAULT_RPC = process.env.TALOS_EVENT_RPC || "https://sui-mainnet-endpoint.blockvision.org"
+const vaultRpc = new SuiClient({ url: VAULT_RPC })
+
+/** getObject with backoff — the free RPC endpoint can 429 under the parallel read burst. */
+async function getObjRetry(id: string, tries = 3): Promise<Awaited<ReturnType<typeof vaultRpc.getObject>>> {
+  let last: unknown
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await vaultRpc.getObject({ id, options: { showContent: true } })
+    } catch (e) {
+      last = e
+      await new Promise((r) => setTimeout(r, 350 * (i + 1)))
+    }
+  }
+  throw last
+}
 
 // Position coin type suffixes used to identify which venue a vault is currently in.
 // These are the Move type names stored as dynamic-field keys (PosKey { t: TypeName }).
@@ -68,7 +92,7 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
     let pagesFetched = 0
 
     while (pagesFetched < MAX_PAGES) {
-      const res = await client.queryEvents({
+      const res = await vaultRpc.queryEvents({
         query: { MoveEventType: `${PACKAGE_ID}::vault::VaultCreated` },
         order: "descending",
         limit: PAGE_SIZE,
@@ -108,7 +132,7 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
     await Promise.all(
       Array.from(seen.entries()).map(async ([vaultId, { policyId, owner }]) => {
         try {
-          const obj = await client.getObject({ id: policyId, options: { showContent: true } })
+          const obj = await getObjRetry(policyId)
           const f = (obj.data as any)?.content?.fields
           if (!f) return // object missing or wrong type — skip
           const revoked: boolean = Boolean(f.revoked)
@@ -152,7 +176,7 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
     await Promise.all(
       liveEntries.map(async ({ vaultId }) => {
         try {
-          const dfs = await client.getDynamicFields({ parentId: vaultId })
+          const dfs = await vaultRpc.getDynamicFields({ parentId: vaultId })
           let venue = "scallop" // idle default
           for (const df of dfs.data) {
             const typeName: string =
@@ -177,7 +201,7 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
 
         // Read the vault's principal so the multi-user cycle can skip never-funded vaults.
         try {
-          const obj = await client.getObject({ id: vaultId, options: { showContent: true } })
+          const obj = await getObjRetry(vaultId)
           const vf = (obj.data as any)?.content?.fields
           vaultToPrincipal.set(vaultId, Number(vf?.principal ?? 0) || 0)
         } catch (err) {
