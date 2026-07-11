@@ -160,6 +160,30 @@ export async function GET() {
     });
     const best = candidates[0];
 
+    // --- Deployed position: which venue the agent supplied the vault's USDC into, so the
+    // UI can show "deployed in scallop" instead of an empty-looking vault. Venue from the
+    // vault's position dynamic fields; deployed amount ≈ principal − idle (exact for a
+    // deposit→supply; a proxy after withdraws). One extra RPC, only for the selected vault.
+    let position: { venue: string; deployed: string } | null = null;
+    if (best.vaultId) {
+      try {
+        const dfs = await suiClient.getDynamicFields({ parentId: best.vaultId });
+        for (const df of dfs.data) {
+          const tn =
+            typeof df.name?.value === "object" && df.name.value !== null
+              ? String((df.name.value as { t?: unknown }).t ?? "")
+              : String(df.name?.value ?? "");
+          if (tn.includes("scallop_usdc")) { position = { venue: "scallop", deployed: "" }; break; }
+          if (tn.toLowerCase().includes("yusdc")) { position = { venue: "kai", deployed: "" }; break; }
+        }
+        if (position) {
+          position.deployed = String(Math.max(0, Number(best.principal) - Number(best.idleUsdc)));
+        }
+      } catch (err) {
+        console.warn("[vault/route] position read failed:", err);
+      }
+    }
+
     return NextResponse.json({
       exists: true,
       address,
@@ -173,6 +197,8 @@ export async function GET() {
       expiresAtMs: best.expiresAtMs,
       owner: best.owner,
       agent: best.agent,
+      // Deployed lending position (venue + approx USDC), or null if all idle.
+      position,
       // How many policies/vaults this wallet holds (>1 = leftover duplicates from earlier retries).
       policyCount: candidates.length,
     });
