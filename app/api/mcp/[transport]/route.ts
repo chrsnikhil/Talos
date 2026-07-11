@@ -41,6 +41,29 @@ async function postJson(path: string, body: unknown, cookie: string) {
 }
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
+// Suiscan mainnet tx explorer + relative-time, so status tools can hand Claude a
+// clickable proof link to the swarm's most recent on-chain action.
+const EXPLORER_TX = "https://suiscan.xyz/mainnet/tx/";
+function ago(ms: number): string {
+  if (!ms) return "";
+  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+/** The swarm's latest on-chain action as an explorer link, or "" if none/unavailable. */
+async function lastSwarmTxLine(): Promise<string> {
+  try {
+    const act = await getJson("/api/talos/activity");
+    const last = Array.isArray(act?.events) ? act.events[0] : null;
+    if (!last?.tx) return "";
+    return `\nlatest on-chain tx: ${last.type}${last.timestampMs ? ` · ${ago(last.timestampMs)}` : ""} · ${EXPLORER_TX}${last.tx}`;
+  } catch {
+    return "";
+  }
+}
+
 const handler = createMcpHandler(
   (server) => {
     server.registerTool(
@@ -65,11 +88,13 @@ const handler = createMcpHandler(
 
     server.registerTool(
       "get_swarm_status",
-      { title: "Get swarm status", description: "The Talos agent swarm: active/idle, cycles run, brain (LLM), on-chain reputation.", inputSchema: {} },
+      { title: "Get swarm status", description: "The Talos agent swarm: active/idle, cycles run, brain (LLM), on-chain reputation, and a Suiscan link to its latest on-chain transaction (verifiable proof).", inputSchema: {} },
       async () => {
-        const s = await getJson("/api/talos/swarm");
+        const [s, txLine] = await Promise.all([getJson("/api/talos/swarm"), lastSwarmTxLine()]);
         const rep = s?.reputation?.total != null ? `${s.reputation.total} ratings (avg ${s.reputation.avg}/100)` : "n/a";
-        return text(`Swarm: ${s?.active ? "ACTIVE" : "idle"} · ${s?.cycles ?? 0} cycles · brain ${s?.provider ?? "?"} ${s?.model ?? ""} · reputation ${rep}`);
+        return text(
+          `Swarm: ${s?.active ? "ACTIVE" : "idle"} · ${s?.cycles ?? 0} cycles · brain ${s?.provider ?? "?"} ${s?.model ?? ""} · reputation ${rep}${txLine}`,
+        );
       },
     );
 
