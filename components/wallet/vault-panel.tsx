@@ -210,8 +210,13 @@ export default function VaultPanel() {
     );
   }
 
+  // Narrow vault to non-null for all code below.
+  if (!vault) return null;
+  // Capture in a const so TypeScript treats it as non-null inside nested functions.
+  const v = vault;
+
   // ── Create vault ─────────────────────────────────────────────────────────────
-  if (!vault?.exists) {
+  if (!vault.exists) {
     return (
       <div style={S.card}>
         <p style={{ color: "#8b98ab", marginBottom: 16, fontSize: 13 }}>
@@ -248,7 +253,7 @@ export default function VaultPanel() {
     try {
       const result = await execute(
         buildDeposit({
-          vaultId: vault.vaultId!,
+          vaultId: v.vaultId!,
           coinObjectId: depositCoinId.trim(),
           amount: BigInt(Math.round(amount * 1_000_000)),
         })
@@ -272,10 +277,10 @@ export default function VaultPanel() {
     try {
       const result = await execute(
         buildOwnerWithdrawUsdc({
-          vaultId: vault.vaultId!,
-          ownerCapId: vault.ownerCapId!,
+          vaultId: v.vaultId!,
+          ownerCapId: v.ownerCapId!,
           amount: BigInt(Math.round(amount * 1_000_000)),
-          sender: vault.owner!,
+          sender: v.owner!,
         })
       );
       setWithdrawDigest(result.digest);
@@ -295,11 +300,11 @@ export default function VaultPanel() {
     try {
       const result = await execute(
         buildPanic({
-          policyId: vault.policyId!,
-          vaultId: vault.vaultId!,
-          ownerCapId: vault.ownerCapId!,
-          amount: BigInt(vault.idleUsdc && vault.idleUsdc !== "" ? vault.idleUsdc : "0"),
-          sender: vault.owner!,
+          policyId: v.policyId!,
+          vaultId: v.vaultId!,
+          ownerCapId: v.ownerCapId!,
+          amount: BigInt(v.idleUsdc && v.idleUsdc !== "" ? v.idleUsdc : "0"),
+          sender: v.owner!,
         })
       );
       setPanicDigest(result.digest);
@@ -343,18 +348,18 @@ export default function VaultPanel() {
       {/* ── Vault stats ── */}
       <div>
         <p style={S.label}>Idle USDC</p>
-        <p style={S.accentValue}>{formatUsdc(vault.idleUsdc)}</p>
+        <p style={S.accentValue}>{formatUsdc(v.idleUsdc)}</p>
 
         <p style={S.label}>Principal</p>
-        <p style={S.value}>{formatUsdc(vault.principal)}</p>
+        <p style={S.value}>{formatUsdc(v.principal)}</p>
 
         <p style={S.label}>Policy status</p>
-        <p style={{ ...S.value, color: vault.revoked ? "#ff6b6b" : "#28d391" }}>
-          {vault.revoked ? "REVOKED" : "active"}
+        <p style={{ ...S.value, color: v.revoked ? "#ff6b6b" : "#28d391" }}>
+          {v.revoked ? "REVOKED" : "active"}
         </p>
 
         <p style={S.label}>Remaining budget</p>
-        <p style={S.value}>{formatUsdc(vault.remainingBudget)}</p>
+        <p style={S.value}>{formatUsdc(v.remainingBudget)}</p>
       </div>
 
       <div style={S.divider} />

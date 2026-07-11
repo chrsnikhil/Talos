@@ -10,6 +10,10 @@ export type UserDoc = {
   tag: string;
   createdAt: Date;
   paused?: boolean;
+  /** Cached vault principal in MIST (USDC 1e6 units), written by vault sync. */
+  principal?: number;
+  /** Alias for principal stored by older code paths. */
+  vaultPrincipal?: number;
 };
 
 let clientPromise: Promise<MongoClient> | null = null;
