@@ -279,6 +279,15 @@ export function VaultBento() {
             <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">principal</div>
           </div>
         </div>
+        {vault?.position && (
+          <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
+            <span className="h-1.5 w-1.5 animate-blink bg-accent" />
+            <span className="font-mono text-xs text-foreground">
+              {fmtUsdc(vault.position.deployed)} deployed in {vault.position.venue}
+            </span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">· earning</span>
+          </div>
+        )}
       </Cell>
 
       {/* Agent status + toggle */}

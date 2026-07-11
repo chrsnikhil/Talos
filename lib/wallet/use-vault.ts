@@ -23,6 +23,8 @@ export interface VaultState {
   expiresAtMs?: string;
   owner?: string;
   agent?: string;
+  /** Deployed lending position (venue + approx USDC base units), or null if all idle. */
+  position?: { venue: string; deployed: string } | null;
 }
 
 export interface UseVaultReturn {

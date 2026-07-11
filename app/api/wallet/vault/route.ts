@@ -169,10 +169,11 @@ export async function GET() {
       try {
         const dfs = await suiClient.getDynamicFields({ parentId: best.vaultId });
         for (const df of dfs.data) {
-          const tn =
-            typeof df.name?.value === "object" && df.name.value !== null
-              ? String((df.name.value as { t?: unknown }).t ?? "")
-              : String(df.name?.value ?? "");
+          // Position key is PosKey { t: TypeName } and TypeName is { name: "<type>" },
+          // so the fully-qualified position type lives at value.t.name.
+          const raw = df.name?.value as { t?: { name?: string } | string } | undefined;
+          const tobj = raw?.t;
+          const tn = String((typeof tobj === "object" ? tobj?.name : tobj) ?? "");
           if (tn.includes("scallop_usdc")) { position = { venue: "scallop", deployed: "" }; break; }
           if (tn.toLowerCase().includes("yusdc")) { position = { venue: "kai", deployed: "" }; break; }
         }
