@@ -1,3 +1,7 @@
+// Deterministic 32-byte (64-hex) key so this runs standalone (CI / `pnpm test`)
+// without a real .env.local. Only used when WALLET_ENC_KEY isn't already set.
+process.env.WALLET_ENC_KEY ??= "0".repeat(64);
+
 import assert from "node:assert/strict";
 import { encryptSecret, decryptSecret } from "./crypto";
 
