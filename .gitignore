@@ -11,3 +11,7 @@ node_modules
 # Talos runtime state — regenerated on each box; not source.
 .talos-swarm.json
 .talos-decisions.json
+
+# private keys / keystores — never commit
+*.key
+*.keystore
