@@ -52,6 +52,9 @@ export type VaultRef = {
   perTxCap: number
   /** AgentPolicy.remaining_budget read from chain. Falls back to DEFAULT_REMAINING_BUDGET on error. */
   remainingBudget: number
+  /** Vault.principal (total USDC ever deposited, base units). 0 = never funded → the
+   *  multi-user cycle skips it (nothing to manage). Falls back to 0 on RPC error. */
+  principal: number
 }
 
 const PAGE_SIZE = 50
@@ -145,6 +148,7 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
     // - Any type containing "kai" (the yUSDC module path) → "kai"
     // - No matching position field (idle vault) → "scallop" (conservative default)
     const vaultToVenue = new Map<string, string>()
+    const vaultToPrincipal = new Map<string, number>()
     await Promise.all(
       liveEntries.map(async ({ vaultId }) => {
         try {
@@ -170,6 +174,16 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
           console.warn(`[vaults] getDynamicFields(${vaultId}) failed, defaulting currentVenue to "scallop":`, err)
           vaultToVenue.set(vaultId, "scallop")
         }
+
+        // Read the vault's principal so the multi-user cycle can skip never-funded vaults.
+        try {
+          const obj = await client.getObject({ id: vaultId, options: { showContent: true } })
+          const vf = (obj.data as any)?.content?.fields
+          vaultToPrincipal.set(vaultId, Number(vf?.principal ?? 0) || 0)
+        } catch (err) {
+          console.warn(`[vaults] getObject(${vaultId}) for principal failed, defaulting to 0:`, err)
+          vaultToPrincipal.set(vaultId, 0)
+        }
       }),
     )
 
@@ -181,6 +195,7 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
       currentVenue: vaultToVenue.get(vaultId) ?? "scallop",
       perTxCap,
       remainingBudget,
+      principal: vaultToPrincipal.get(vaultId) ?? 0,
     }))
   } catch (err) {
     console.error("[vaults] listActiveVaults error — returning []:", err)

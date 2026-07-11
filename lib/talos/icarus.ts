@@ -193,6 +193,12 @@ export async function runMultiUserCycle(n: number): Promise<void> {
       continue
     }
 
+    // Never-funded vault (principal 0) — nothing to manage. Skip quietly so empty
+    // vaults don't churn the feed or produce failed-rebalance noise.
+    if (!v.principal || v.principal === 0) {
+      continue
+    }
+
     // Build the policy view from the real on-chain values read by listActiveVaults.
     // perTxCap and remainingBudget come from the vault's AgentPolicy object (already
     // fetched during liveness check). Falls back to safe conservative defaults if RPC failed.
