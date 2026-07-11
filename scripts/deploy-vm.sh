@@ -13,6 +13,10 @@ set -euo pipefail
 
 VM="azureuser@20.219.0.224"
 FQDN="talos-swarm-d8b4e2.centralindia.cloudapp.azure.com"
+# Public app origin used for APP_URL (OAuth issuer/redirect, MCP metadata). Defaults to
+# the Azure hostname; after the custom-domain cutover (scripts/flip-domain.sh) run deploys
+# with TALOS_APP_DOMAIN=talosfi.xyz so APP_URL is not reverted to the Azure host.
+APP_DOMAIN="${TALOS_APP_DOMAIN:-$FQDN}"
 V2_PKG="0x9c49978732d2e8cb38f0744f825bc1d5431f34582811bfef6b099c785a22031f"
 MODE="${1:-all}"
 LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
@@ -51,7 +55,7 @@ for k in "${COPY_KEYS[@]}"; do
 done
 # Forced VM-correct values (override whatever is local):
 printf 'TALOS_PACKAGE_ID=%s\n' "$V2_PKG" >> "$PAYLOAD_TMP"
-printf 'APP_URL=https://%s\n' "$FQDN" >> "$PAYLOAD_TMP"
+printf 'APP_URL=https://%s\n' "$APP_DOMAIN" >> "$PAYLOAD_TMP"
 # Reliable RPCs — the VM's default fullnode replica (centralindia) cannot read the v2
 # vault/policy objects, which breaks the wallet UI AND the multi-user swarm. Pin the
 # whole stack to consistently-indexed endpoints. SUI_RPC uses a "mainnet"-named host so
