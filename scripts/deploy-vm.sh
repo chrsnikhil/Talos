@@ -23,46 +23,55 @@ COPY_KEYS=(MONGODB_URI WALLET_ENC_KEY SESSION_SECRET NEXT_PUBLIC_GOOGLE_CLIENT_I
            GOOGLE_CLIENT_SECRET WALLET_FUNDING_KEY WALLET_DRIP_SUI)
 
 echo "==> [1/4] Syncing source to $VM:~/Talos (additive; excludes node_modules/.next/.git/.env.local)"
-rsync -az \
-  --exclude node_modules --exclude .next --exclude .git \
-  --exclude .env.local --exclude '*.key' --exclude '*.keystore' \
-  --exclude .stray-keys --exclude .suicli \
-  --exclude '.talos-swarm*.json' \
-  -e ssh "$LOCAL"/ "$VM":Talos/
+# tar-over-ssh instead of rsync (rsync isn't present in Git Bash on Windows). Additive
+# overlay: extraction overwrites changed files but never deletes VM-only files, so the
+# VM's .env.local and cumulative .talos-swarm.json are preserved.
+tar czf - -C "$LOCAL" \
+  --exclude='./node_modules' --exclude='./.next' --exclude='./.git' \
+  --exclude='./.env.local' --exclude='*.key' --exclude='*.keystore' \
+  --exclude='./.stray-keys' --exclude='./.suicli' \
+  --exclude='*talos-swarm*.json' \
+  . | ssh "$VM" 'mkdir -p ~/Talos && tar xzf - -C ~/Talos'
 
 echo "==> [2/4] Building the VM env-upsert payload from local .env.local"
-# Collect "KEY=VALUE" lines for keys we want to push, straight from local .env.local.
-PAYLOAD=""
+# Collect "KEY=VALUE" lines for keys we want to push, straight from local .env.local,
+# into a temp file that we scp to the VM. IMPORTANT: we must NOT pipe this into the
+# same ssh whose stdin carries the remote heredoc script — the remote `while read`
+# would consume the script (skipping install/build) and append it as garbage into
+# .env.local. Reading from a scp'd file (< /tmp/...) keeps the two streams separate.
+PAYLOAD_TMP="$(mktemp)"
 for k in "${COPY_KEYS[@]}"; do
   line="$(grep -E "^${k}=" "$LOCAL/.env.local" 2>/dev/null | head -1 || true)"
   val="${line#*=}"
   if [ -n "$line" ] && [ -n "$val" ]; then
-    PAYLOAD+="$line"$'\n'
+    printf '%s\n' "$line" >> "$PAYLOAD_TMP"
   else
     echo "    (skip $k — not set locally)"
   fi
 done
 # Forced VM-correct values (override whatever is local):
-PAYLOAD+="TALOS_PACKAGE_ID=$V2_PKG"$'\n'
-PAYLOAD+="APP_URL=https://$FQDN"$'\n'
+printf 'TALOS_PACKAGE_ID=%s\n' "$V2_PKG" >> "$PAYLOAD_TMP"
+printf 'APP_URL=https://%s\n' "$FQDN" >> "$PAYLOAD_TMP"
 
 echo "==> [3/4] Upserting env on the VM + install + build"
-printf '%s' "$PAYLOAD" | ssh "$VM" 'bash -s' <<'REMOTE'
+scp -q "$PAYLOAD_TMP" "$VM":/tmp/talos-env-upsert
+rm -f "$PAYLOAD_TMP"
+ssh "$VM" 'bash -s' <<'REMOTE'
 set -e
 cd ~/Talos
 touch .env.local && chmod 600 .env.local
-# Read the upsert payload from stdin, upsert each KEY=VALUE into .env.local.
+# Upsert each KEY=VALUE, reading from the scp'd FILE (not stdin — stdin is this script).
 while IFS= read -r kv; do
   [ -z "$kv" ] && continue
   key="${kv%%=*}"
   if grep -qE "^${key}=" .env.local; then
-    # replace in place (| delimiter avoids clashes with / in values)
     esc="$(printf '%s' "$kv" | sed 's/[&|]/\\&/g')"
     sed -i "s|^${key}=.*|${esc}|" .env.local
   else
     printf '%s\n' "$kv" >> .env.local
   fi
-done
+done < /tmp/talos-env-upsert
+rm -f /tmp/talos-env-upsert
 echo "    env keys now present:"
 grep -oE '^[A-Z_]+=' .env.local | sort -u | sed 's/^/      /'
 echo "    pnpm install..."
