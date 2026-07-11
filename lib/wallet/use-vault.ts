@@ -62,12 +62,21 @@ export function useVault(): UseVaultReturn {
     setLoading(true);
     try {
       const res = await fetch("/api/wallet/vault");
+      if (res.status === 401) {
+        // Not signed in — a normal state (e.g. logged-out dashboard). Not an error.
+        setVault({ exists: false });
+        return;
+      }
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `vault fetch failed: ${res.status}`);
+        // Transient server/network error — keep last good state, don't throw
+        // (this runs in a mount effect with no catch; a throw = unhandled rejection).
+        console.warn("[useVault] vault fetch failed:", res.status);
+        return;
       }
       const data: VaultState = await res.json();
       setVault(data);
+    } catch (err) {
+      console.warn("[useVault] vault fetch error:", err);
     } finally {
       setLoading(false);
     }

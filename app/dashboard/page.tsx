@@ -8,6 +8,7 @@ import { EventStream } from "@/components/talos-dash/event-stream"
 import { ThoughtStream } from "@/components/talos-dash/thought-stream"
 import { PortfolioPanel } from "@/components/talos-dash/portfolio-panel"
 import { OnchainStream } from "@/components/talos-dash/onchain-stream"
+import { VaultBento } from "@/components/talos-dash/vault-bento"
 
 const WorkshopScene = dynamic(
   () => import("@/components/talos-dash/workshop/scene").then((m) => m.WorkshopScene),
@@ -51,7 +52,7 @@ function ago(ms: number) {
   if (s < 86400) return `${Math.floor(s / 3600)}h`
   return `${Math.floor(s / 86400)}d`
 }
-const TABS = ["LIVE", "THOUGHT", "PORTFOLIO", "ON-CHAIN", "POLICY", "REPUTATION"] as const
+const TABS = ["VAULT", "LIVE", "THOUGHT", "PORTFOLIO", "ON-CHAIN", "POLICY", "REPUTATION"] as const
 type Tab = (typeof TABS)[number]
 
 function ChartTip({ active, payload, label, unit }: any) {
@@ -92,6 +93,12 @@ export default function Dashboard() {
   const [swarm, setSwarm] = useState<Swarm | null>(null)
   const [updated, setUpdated] = useState<Date | null>(null)
   const [tab, setTab] = useState<Tab>("LIVE")
+
+  // Open a specific tab when arrived via ?tab= (e.g. OAuth callback → ?tab=VAULT).
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab")?.toUpperCase()
+    if (t && (TABS as readonly string[]).includes(t)) setTab(t as Tab)
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -177,6 +184,18 @@ export default function Dashboard() {
       </div>
 
       <div className="px-6 py-8 lg:px-10">
+        {/* ===== VAULT (your embedded wallet + vault) ===== */}
+        {tab === "VAULT" && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <span className="font-pixel text-2xl">MY VAULT</span>
+              <div className="h-px flex-1 border-t border-border" />
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">non-custodial · sui mainnet</span>
+            </div>
+            <VaultBento />
+          </div>
+        )}
+
         {/* ===== LIVE ===== */}
         {tab === "LIVE" && (
           <div className="space-y-8">
