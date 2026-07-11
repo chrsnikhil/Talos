@@ -69,15 +69,30 @@ function saveState(s: SwarmState) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+const MAINNET_CHAIN_ID = "35834a8a"
+
 async function main() {
-  if (!/mainnet/i.test(RPC)) {
-    console.error(`✗ SUI_RPC is not mainnet ("${RPC}"). Refusing to run the real-fund swarm.`)
-    process.exit(1)
+  const client = new SuiClient({ url: RPC })
+
+  // Confirm we're on mainnet before moving real funds. Verify the CHAIN IDENTIFIER
+  // (robust to reliable RPC URLs that don't literally contain "mainnet", e.g.
+  // sui-rpc.publicnode.com). Fall back to the URL heuristic only if the identifier
+  // can't be fetched, so a transient RPC hiccup at boot doesn't wedge the loop.
+  try {
+    const chainId = await client.getChainIdentifier()
+    if (chainId !== MAINNET_CHAIN_ID) {
+      console.error(`✗ chain identifier "${chainId}" is not Sui mainnet (${MAINNET_CHAIN_ID}). Refusing to run the real-fund swarm.`)
+      process.exit(1)
+    }
+  } catch {
+    if (!/mainnet/i.test(RPC)) {
+      console.error(`✗ could not confirm mainnet and SUI_RPC ("${RPC}") lacks "mainnet". Refusing to run the real-fund swarm.`)
+      process.exit(1)
+    }
   }
 
   const info = llmInfo()
   const brain = info.provider === "none" ? "heuristic (no LLM key)" : `${info.provider} · ${info.model}`
-  const client = new SuiClient({ url: RPC })
 
   console.log("╔══════════════════════════════════════════════╗")
   console.log("║  TALOS swarm — autonomous, continuous (mainnet) ")

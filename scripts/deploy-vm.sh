@@ -52,6 +52,13 @@ done
 # Forced VM-correct values (override whatever is local):
 printf 'TALOS_PACKAGE_ID=%s\n' "$V2_PKG" >> "$PAYLOAD_TMP"
 printf 'APP_URL=https://%s\n' "$FQDN" >> "$PAYLOAD_TMP"
+# Reliable RPCs — the VM's default fullnode replica (centralindia) cannot read the v2
+# vault/policy objects, which breaks the wallet UI AND the multi-user swarm. Pin the
+# whole stack to consistently-indexed endpoints. SUI_RPC uses a "mainnet"-named host so
+# it also satisfies run-swarm's URL fallback guard; wallet/event use publicnode.
+printf 'SUI_RPC=https://rpc-mainnet.suiscan.xyz\n' >> "$PAYLOAD_TMP"
+printf 'WALLET_RPC=https://sui-rpc.publicnode.com\n' >> "$PAYLOAD_TMP"
+printf 'TALOS_EVENT_RPC=https://sui-rpc.publicnode.com\n' >> "$PAYLOAD_TMP"
 
 echo "==> [3/4] Upserting env on the VM + install + build"
 scp -q "$PAYLOAD_TMP" "$VM":/tmp/talos-env-upsert
