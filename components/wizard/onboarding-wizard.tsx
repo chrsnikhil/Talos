@@ -41,12 +41,15 @@ function WizardBot() {
       ? 1 - Math.pow(1 - entry, 3) * (1 + 1.7 * (1 - entry))
       : 1
 
-    const entryY = -3 * (1 - spring)
+    // Bot geometry spans y=0..1.66; rest at -0.83 so it's centered at origin
+    // Entry: bounce up from 3 units below the resting position
+    const REST_Y = -0.83
+    const entryDelta = -3 * (1 - spring)
 
     // Continuous gentle bob
     const bob = Math.sin(t * 2.2) * 0.06
 
-    g.position.y = entryY + bob
+    g.position.y = REST_Y + entryDelta + bob
     g.rotation.y = Math.sin(t * 0.5) * 0.12
   })
 
@@ -215,7 +218,7 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }) {
           {/* Canvas is always a client-side mount — safe in "use client" file */}
           <Canvas
             dpr={[1, 2]}
-            camera={{ position: [0, 1, 4.5], fov: 30, near: 0.1, far: 100 }}
+            camera={{ position: [0, 0, 4.5], fov: 30, near: 0.1, far: 100 }}
           >
             <ambientLight intensity={0.8} color="#eaf1ff" />
             <directionalLight position={[3, 6, 4]} intensity={1.2} color="#cfe0ff" />
