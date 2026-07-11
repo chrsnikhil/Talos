@@ -27,6 +27,7 @@ rsync -az \
   --exclude node_modules --exclude .next --exclude .git \
   --exclude .env.local --exclude '*.key' --exclude '*.keystore' \
   --exclude .stray-keys --exclude .suicli \
+  --exclude '.talos-swarm*.json' \
   -e ssh "$LOCAL"/ "$VM":Talos/
 
 echo "==> [2/4] Building the VM env-upsert payload from local .env.local"
