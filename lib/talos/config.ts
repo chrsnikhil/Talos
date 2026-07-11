@@ -13,6 +13,15 @@ function req(key: string): string {
 
 export const RPC = process.env.SUI_RPC || "https://fullnode.testnet.sui.io:443"
 export const PACKAGE_ID = req("TALOS_PACKAGE_ID")
+/**
+ * Original (v1) package address. `agent_policy` and `reputation` were defined here;
+ * Move preserves a type's origin package across upgrades, so their types and events
+ * (SpendAuthorized, CriticRating) keep this v1 prefix even when PACKAGE_ID points at
+ * v2. Use ORIGIN_PKG for TYPE/event filters on those modules; use PACKAGE_ID (latest)
+ * for MoveCall targets and for the v2-native `vault` module (VaultCreated, etc.).
+ */
+export const ORIGIN_PKG =
+  "0x75b7f5d2926f333d8849726655904111420d4f86acb2578274b31338bcf8142c"
 export const POLICY_ID = req("TALOS_POLICY_ID")
 export const REPUTATION_ID = process.env.TALOS_REPUTATION_ID || "" // required by Daedalus
 export const WALRUS_PUBLISHER = process.env.WALRUS_PUBLISHER || "https://publisher.walrus-testnet.walrus.space"

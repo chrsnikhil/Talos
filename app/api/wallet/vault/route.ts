@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifySession, SESSION_COOKIE } from "@/lib/wallet/session";
 import { users } from "@/lib/wallet/mongo";
-import { suiClient, PACKAGE_ID } from "@/lib/wallet/config";
+import { suiClient, PACKAGE_ID, AGENT_POLICY_PKG } from "@/lib/wallet/config";
 export const runtime = "nodejs";
 
 export async function GET() {
@@ -18,7 +18,9 @@ export async function GET() {
 
   try {
     // --- Step 1: Find OwnerCap among owned objects ---
-    const ownerCapType = `${PACKAGE_ID}::agent_policy::OwnerCap`;
+    // OwnerCap's type origin is the v1 package (agent_policy was defined there and
+    // upgrades preserve type origin), so filter by AGENT_POLICY_PKG, not PACKAGE_ID.
+    const ownerCapType = `${AGENT_POLICY_PKG}::agent_policy::OwnerCap`;
     let cursor: string | null | undefined = undefined;
     let ownerCapId: string | null = null;
     let policyId: string | null = null;

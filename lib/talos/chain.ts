@@ -1,5 +1,5 @@
 import { Transaction } from "@mysten/sui/transactions"
-import { client, keypair, criticKeypair, PACKAGE_ID, POLICY_ID, REPUTATION_ID } from "./config"
+import { client, keypair, criticKeypair, PACKAGE_ID, ORIGIN_PKG, POLICY_ID, REPUTATION_ID } from "./config"
 
 export type SpendEvent = { tx: string; amount: number; protocol: string; remaining: number; timestampMs: number }
 
@@ -10,7 +10,7 @@ export type SpendEvent = { tx: string; amount: number; protocol: string; remaini
  * critic stalls. Descending keeps a rolling window over the latest activity. */
 export async function readSpendEvents(limit = 200): Promise<SpendEvent[]> {
   const res = await client.queryEvents({
-    query: { MoveEventType: `${PACKAGE_ID}::agent_policy::SpendAuthorized` },
+    query: { MoveEventType: `${ORIGIN_PKG}::agent_policy::SpendAuthorized` },
     order: "descending",
     limit,
   })
@@ -26,7 +26,7 @@ export async function readSpendEvents(limit = 200): Promise<SpendEvent[]> {
 /** Set of Icarus tx digests Daedalus has already rated (for this reputation ledger). */
 export async function readRatedTxs(): Promise<Set<string>> {
   const res = await client.queryEvents({
-    query: { MoveEventType: `${PACKAGE_ID}::reputation::CriticRating` },
+    query: { MoveEventType: `${ORIGIN_PKG}::reputation::CriticRating` },
     order: "descending",
     limit: 200,
   })
