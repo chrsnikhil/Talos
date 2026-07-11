@@ -99,10 +99,24 @@ export function useVault(): UseVaultReturn {
         );
       }
 
+      // The route returns HTTP 200 even when the on-chain tx aborted (status
+      // "failure"). Treat anything other than "success" as an error so the UI
+      // never reports a failed transaction as complete.
+      const { digest, status, error } = body as {
+        digest: string;
+        status?: string;
+        error?: string;
+      };
+      if (status && status !== "success") {
+        throw new Error(
+          `transaction failed on-chain (${status})${error ? `: ${error}` : ""} — ${digest}`
+        );
+      }
+
       // Refresh vault state after every successful execution.
       await refresh();
 
-      return { digest: (body as { digest: string }).digest };
+      return { digest };
     },
     [refresh]
   );

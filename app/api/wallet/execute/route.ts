@@ -96,7 +96,11 @@ export async function POST(req: Request) {
     if (!isAllowed(tx, signer.toSuiAddress())) return NextResponse.json({ error: "target not allowed" }, { status: 403 });
     tx.setSenderIfNotSet(signer.toSuiAddress());
     const res = await suiClient.signAndExecuteTransaction({ signer, transaction: tx, options: { showEffects: true } });
-    return NextResponse.json({ digest: res.digest, status: res.effects?.status?.status });
+    return NextResponse.json({
+      digest: res.digest,
+      status: res.effects?.status?.status,
+      error: res.effects?.status?.error,
+    });
   } catch (e: unknown) {
     const msg = String((e as Error)?.message ?? e);
     if (msg.includes("user not found")) return NextResponse.json({ error: "wallet not found" }, { status: 404 });

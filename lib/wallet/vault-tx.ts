@@ -81,15 +81,26 @@ export interface BuildCreateVaultArgs {
   allowedPositions: string[];
 }
 
+/** std::type_name::TypeName — the element type of the vault's `allowed` argument. */
+const TYPE_NAME_TYPE = "0x1::type_name::TypeName";
+
 export function buildCreateVault(args: BuildCreateVaultArgs): Transaction {
   const tx = new Transaction();
+  // `allowed` is `vector<TypeName>`. TypeName is a Move struct, so it CANNOT be
+  // passed as a pure argument (the VM rejects it with InvalidUsageOfPureArg).
+  // Build the vector with MakeMoveVec instead. The UI always passes an empty
+  // allow-list; non-empty TypeName entries can't be constructed client-side as
+  // pure values, so that path is unsupported here.
+  if (args.allowedPositions.length > 0) {
+    throw new Error(
+      "buildCreateVault: non-empty allowedPositions is not supported (TypeName cannot be a pure arg)"
+    );
+  }
+  const allowed = tx.makeMoveVec({ type: TYPE_NAME_TYPE, elements: [] });
   tx.moveCall({
     target: `${PACKAGE_ID}::vault::create_vault`,
     typeArguments: [USDC_TYPE],
-    arguments: [
-      tx.object(args.policyId),
-      tx.pure.vector("string", args.allowedPositions),
-    ],
+    arguments: [tx.object(args.policyId), allowed],
   });
   return tx;
 }
