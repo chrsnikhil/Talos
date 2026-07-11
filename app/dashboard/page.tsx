@@ -15,6 +15,13 @@ const WorkshopScene = dynamic(
   { ssr: false, loading: () => <div className="flex h-[520px] items-center justify-center border-2 border-border text-xs uppercase tracking-widest text-muted-foreground">loading workshop…</div> },
 )
 
+// Client-only (react-three-fiber). Shown once on first dashboard visit.
+const OnboardingWizard = dynamic(
+  () => import("@/components/wizard/onboarding-wizard").then((m) => m.OnboardingWizard),
+  { ssr: false },
+)
+const ONBOARDED_KEY = "talos_onboarded_v1"
+
 const EXPLORER = "https://suiscan.xyz/mainnet"
 const ACCENT = "#3b97fb"
 const GRID = "#2e3440"
@@ -93,6 +100,16 @@ export default function Dashboard() {
   const [swarm, setSwarm] = useState<Swarm | null>(null)
   const [updated, setUpdated] = useState<Date | null>(null)
   const [tab, setTab] = useState<Tab>("LIVE")
+  const [showWizard, setShowWizard] = useState(false)
+
+  // Onboarding wizard: show once, first dashboard visit only.
+  useEffect(() => {
+    if (!localStorage.getItem(ONBOARDED_KEY)) setShowWizard(true)
+  }, [])
+  const dismissWizard = () => {
+    localStorage.setItem(ONBOARDED_KEY, "1")
+    setShowWizard(false)
+  }
 
   // Open a specific tab when arrived via ?tab= (e.g. OAuth callback → ?tab=VAULT).
   useEffect(() => {
@@ -149,6 +166,7 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
+      {showWizard && <OnboardingWizard onDone={dismissWizard} />}
       {/* top bar */}
       <div className="sticky top-0 z-40 flex items-stretch justify-between border-b-2 border-border bg-background">
         <a href="/" className="flex items-center gap-2 border-r-2 border-border px-5 py-4 hover:bg-foreground hover:text-background">

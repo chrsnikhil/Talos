@@ -188,8 +188,10 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(13,19,25,0.88)", backdropFilter: "blur(12px)" }}
+      className="fixed inset-0 flex items-center justify-center"
+      // z above drei <Html> nameplates from the workshop scene (default ~16.7M) so they
+      // don't bleed through the backdrop onto the wizard.
+      style={{ zIndex: 16_777_300, background: "rgba(13,19,25,0.94)", backdropFilter: "blur(14px)" }}
     >
       {/* Skip */}
       <button
