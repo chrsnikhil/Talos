@@ -439,7 +439,7 @@ export function VaultBento() {
       </Cell>
 
       {/* Panic */}
-      <Cell title="// EMERGENCY" className="col-span-2">
+      <Cell title="// EMERGENCY" className="col-span-full">
         <div className="flex h-full flex-col justify-between gap-2">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
             {panicConfirm ? "revokes policy + withdraws ALL funds" : "one-tap kill-switch"}
