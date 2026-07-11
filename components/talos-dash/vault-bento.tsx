@@ -118,6 +118,35 @@ export function VaultBento() {
   const [err, setErr] = useState<string | null>(null)
   const [digest, setDigest] = useState<string | null>(null)
 
+  // Claude MCP connector state
+  const [mcp, setMcp] = useState<{ url: string; header: string } | null>(null)
+  const [mcpBusy, setMcpBusy] = useState(false)
+  const [copied, setCopied] = useState<string | null>(null)
+  const genMcp = async () => {
+    setMcpBusy(true)
+    try {
+      const r = await fetch("/api/wallet/mcp-token", { method: "POST" })
+      const b = await r.json()
+      if (r.ok) setMcp({ url: b.url, header: `Bearer ${b.token}` })
+    } finally {
+      setMcpBusy(false)
+    }
+  }
+  const revokeMcp = async () => {
+    setMcpBusy(true)
+    try {
+      await fetch("/api/wallet/mcp-token", { method: "DELETE" })
+      setMcp(null)
+    } finally {
+      setMcpBusy(false)
+    }
+  }
+  const copy = (label: string, v: string) => {
+    navigator.clipboard?.writeText(v)
+    setCopied(label)
+    setTimeout(() => setCopied(null), 1500)
+  }
+
   // Load yield-uplift analytics (best-effort)
   useEffect(() => {
     if (!address) return
@@ -483,6 +512,56 @@ export function VaultBento() {
               </button>
             )}
           </div>
+        </div>
+      </Cell>
+
+      {/* Claude MCP connector */}
+      <Cell title="// CONNECT TO CLAUDE (MCP)" className="col-span-full">
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Talk to your vault from Claude. Generate a private connector, then in Claude → Settings → Connectors →
+            Add custom connector, paste the URL and add an <span className="text-foreground">Authorization</span> header.
+            Then ask Claude “how’s my vault doing?” or “pause my agent”.
+          </p>
+          {!mcp ? (
+            <button
+              onClick={genMcp}
+              disabled={mcpBusy}
+              className="w-fit border-2 border-accent px-4 py-1.5 text-[11px] uppercase tracking-widest text-accent transition-colors hover:bg-accent hover:text-background disabled:opacity-40"
+            >
+              {mcpBusy ? "…" : "Generate connector"}
+            </button>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {[
+                { label: "URL", value: mcp.url },
+                { label: "Header  ·  Authorization", value: mcp.header },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <span className="w-40 shrink-0 text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
+                  <code className="min-w-0 flex-1 truncate border border-border bg-black/30 px-2 py-1 font-mono text-[11px] text-foreground">
+                    {value}
+                  </code>
+                  <button
+                    onClick={() => copy(label, value)}
+                    className="shrink-0 border border-border px-2 py-1 text-[9px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                  >
+                    {copied === label ? "copied" : "copy"}
+                  </button>
+                </div>
+              ))}
+              <div className="flex items-center gap-3 pt-1">
+                <span className="text-[9px] uppercase tracking-widest text-amber-400">keep this token private · full read + pause access</span>
+                <button
+                  onClick={revokeMcp}
+                  disabled={mcpBusy}
+                  className="text-[9px] uppercase tracking-widest text-muted-foreground hover:text-red-400 disabled:opacity-40"
+                >
+                  revoke
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </Cell>
 
