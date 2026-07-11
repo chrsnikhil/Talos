@@ -11,6 +11,12 @@
  *   pattern used by readSpendEvents in chain.ts.
  * - Dedupes by vault_id (a vault can only be created once, but defensive).
  * - Policy liveness checked via getObject — drops vaults with revoked or expired policies.
+ *   The same getObject call also reads per_tx_cap and remaining_budget from the policy.
+ * - currentVenue is inferred from the vault's dynamic fields: if the vault holds a
+ *   SCALLOP_USDC position key it is in "scallop"; if it holds a yUSDC key it is in "kai".
+ *   If neither dynamic field is present the vault is idle (all USDC) and defaults to
+ *   "scallop" (the lowest-risk venue — agent will find and chase a better APY as usual).
+ *   This is best-effort: RPC errors fall back to "scallop" with a warning.
  * - Mongo join is best-effort: if the DB is unreachable, sub stays undefined and
  *   the swarm continues (paused users simply won't be paused, a safe degradation).
  * - Any error in the whole function returns [] and logs — never throws into the swarm loop.
@@ -20,11 +26,32 @@ import type { EventId } from "@mysten/sui/client"
 import { client, PACKAGE_ID, AGENT_ADDRESS } from "./config"
 import { users } from "../wallet/mongo"
 
+// Position coin type suffixes used to identify which venue a vault is currently in.
+// These are the Move type names stored as dynamic-field keys (PosKey { t: TypeName }).
+// Full type strings match vault-exec.ts constants.
+const SCALLOP_SUSDC_TYPENAME =
+  "0x55588ffc90718301696fd5497a7b6e82c0f86c15d58e41fc9750a24329ee2523::scallop_usdc::SCALLOP_USDC"
+// Kai yUSDC typename — the "struct_tag" RPC returns uses the package::module::type form
+// and may include type params; we match by substring to be robust across SDK versions.
+const KAI_YUSDC_TYPENAME_FRAGMENT = "kai"
+
+// Safe conservative defaults for policy limits if the RPC read fails.
+const DEFAULT_CHUNK = Number(process.env.TALOS_CHUNK ?? 100)
+const DEFAULT_PER_TX_CAP = DEFAULT_CHUNK
+const DEFAULT_REMAINING_BUDGET = DEFAULT_CHUNK * 10
+
 export type VaultRef = {
   vaultId: string
   policyId: string
   owner: string
   sub?: string
+  /** The venue key ("scallop" | "kai") that the vault currently holds a position in,
+   *  or the idle default ("scallop") when no lending position is open. */
+  currentVenue: string
+  /** AgentPolicy.per_tx_cap read from chain. Falls back to DEFAULT_PER_TX_CAP on error. */
+  perTxCap: number
+  /** AgentPolicy.remaining_budget read from chain. Falls back to DEFAULT_REMAINING_BUDGET on error. */
+  remainingBudget: number
 }
 
 const PAGE_SIZE = 50
@@ -65,9 +92,15 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
 
     if (seen.size === 0) return []
 
-    // --- 2. Cross-check each policy is still active ---
+    // --- 2. Cross-check each policy is still active; also read per_tx_cap + remaining_budget ---
     const now = Date.now()
-    const liveEntries: Array<{ vaultId: string; policyId: string; owner: string }> = []
+    const liveEntries: Array<{
+      vaultId: string
+      policyId: string
+      owner: string
+      perTxCap: number
+      remainingBudget: number
+    }> = []
 
     await Promise.all(
       Array.from(seen.entries()).map(async ([vaultId, { policyId, owner }]) => {
@@ -78,7 +111,10 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
           const revoked: boolean = Boolean(f.revoked)
           const expiresAtMs: number = Number(f.expires_at_ms)
           if (revoked || expiresAtMs <= now) return // inactive — drop
-          liveEntries.push({ vaultId, policyId, owner })
+          // Read policy limits — fall back to safe defaults if the field is missing/NaN
+          const perTxCap = Number(f.per_tx_cap) || DEFAULT_PER_TX_CAP
+          const remainingBudget = Number(f.remaining_budget) || DEFAULT_REMAINING_BUDGET
+          liveEntries.push({ vaultId, policyId, owner, perTxCap, remainingBudget })
         } catch (err) {
           // Transient RPC error for this policy — skip it, don't fail the rest
           console.warn(`[vaults] getObject(${policyId}) failed:`, err)
@@ -102,11 +138,49 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
       console.warn("[vaults] Mongo join failed (sub will be undefined):", err)
     }
 
-    return liveEntries.map(({ vaultId, policyId, owner }) => ({
+    // --- 4. Infer currentVenue from vault dynamic fields ---
+    // The vault stores lending-position balances as dynamic fields keyed by PosKey { t: TypeName }.
+    // We enumerate the vault's dynamic fields and match the type name to a venue key.
+    // - SCALLOP_USDC type → "scallop"
+    // - Any type containing "kai" (the yUSDC module path) → "kai"
+    // - No matching position field (idle vault) → "scallop" (conservative default)
+    const vaultToVenue = new Map<string, string>()
+    await Promise.all(
+      liveEntries.map(async ({ vaultId }) => {
+        try {
+          const dfs = await client.getDynamicFields({ parentId: vaultId })
+          let venue = "scallop" // idle default
+          for (const df of dfs.data) {
+            const typeName: string =
+              typeof df.name?.value === "object" && df.name.value !== null
+                ? String((df.name.value as any).t ?? "")
+                : String(df.name?.value ?? "")
+            if (typeName.includes(SCALLOP_SUSDC_TYPENAME)) {
+              venue = "scallop"
+              break
+            }
+            if (typeName.toLowerCase().includes(KAI_YUSDC_TYPENAME_FRAGMENT)) {
+              venue = "kai"
+              break
+            }
+          }
+          vaultToVenue.set(vaultId, venue)
+        } catch (err) {
+          // Best-effort: RPC error — default to "scallop", log and continue
+          console.warn(`[vaults] getDynamicFields(${vaultId}) failed, defaulting currentVenue to "scallop":`, err)
+          vaultToVenue.set(vaultId, "scallop")
+        }
+      }),
+    )
+
+    return liveEntries.map(({ vaultId, policyId, owner, perTxCap, remainingBudget }) => ({
       vaultId,
       policyId,
       owner,
       sub: ownerToSub.get(owner),
+      currentVenue: vaultToVenue.get(vaultId) ?? "scallop",
+      perTxCap,
+      remainingBudget,
     }))
   } catch (err) {
     console.error("[vaults] listActiveVaults error — returning []:", err)

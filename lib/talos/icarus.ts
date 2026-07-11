@@ -179,22 +179,24 @@ export async function runMultiUserCycle(n: number): Promise<void> {
       continue
     }
 
-    // Build a minimal policy view from what listActiveVaults already validated.
-    // For per-vault budget/cap we would need to re-read the policy object; for now
-    // we use CHUNK as the per-tx cap (matches the flagship agent's sizing).
-    const policyView = { remaining_budget: CHUNK * 10, per_tx_cap: CHUNK }
+    // Build the policy view from the real on-chain values read by listActiveVaults.
+    // perTxCap and remainingBudget come from the vault's AgentPolicy object (already
+    // fetched during liveness check). Falls back to safe conservative defaults if RPC failed.
+    const policyView = { remaining_budget: v.remainingBudget, per_tx_cap: v.perTxCap }
 
-    // Decide — per vault, same APY snapshot.
-    let rawDecision = (await decideWithLLM(current, apys, policyView, CHUNK)) ?? decide(current, apys, policyView, CHUNK)
+    // Decide — per vault, using this vault's current venue (not the flagship agent's).
+    // v.currentVenue is inferred from the vault's dynamic fields (see vaults.ts).
+    const vaultCurrent = v.currentVenue
+    let rawDecision = (await decideWithLLM(vaultCurrent, apys, policyView, v.perTxCap)) ?? decide(vaultCurrent, apys, policyView, v.perTxCap)
 
     // Constrain the executable target to SUPPORTED_VENUES.
     // If the decided venue is not vault-composable, find the best supported one
     // that still beats the current position by the threshold, else HOLD.
     if (rawDecision.action === "REBALANCE" && !SUPPORTED_VENUES.has(rawDecision.target)) {
       // Find the highest-APY supported venue that clears the threshold vs current.
-      const curApy = apys.find((a) => a.protocol === current)?.apy ?? 0
+      const curApy = apys.find((a) => a.protocol === vaultCurrent)?.apy ?? 0
       const bestSupported = [...apys]
-        .filter((a) => SUPPORTED_VENUES.has(a.protocol) && a.protocol !== current)
+        .filter((a) => SUPPORTED_VENUES.has(a.protocol) && a.protocol !== vaultCurrent)
         .sort((a, b) => b.apy - a.apy)[0]
       const THRESHOLD_PP = Number(process.env.TALOS_THRESHOLD_PP ?? 0.25)
       if (bestSupported && bestSupported.apy - curApy >= THRESHOLD_PP) {
@@ -206,7 +208,7 @@ export async function runMultiUserCycle(n: number): Promise<void> {
       } else {
         rawDecision = {
           action: "HOLD",
-          target: current,
+          target: vaultCurrent,
           amount: 0,
           reasoning: `${rawDecision.target} is not vault-composable and no supported venue clears the threshold — holding`,
           by: rawDecision.by,
@@ -237,33 +239,42 @@ export async function runMultiUserCycle(n: number): Promise<void> {
       }
     }
 
-    // Store decision on Walrus keyed by vault id.
-    const blobId = await storeDecision({
-      ts,
-      vaultId: v.vaultId,
-      owner: v.owner,
-      sub: v.sub,
-      apys,
-      decision: rawDecision,
-      txDigest: digest,
-      status,
-    })
-    if (blobId) console.log(`  [vault ${v.vaultId.slice(0, 10)}…] ↳ decision stored on Walrus: ${blobId}`)
+    // Store decision on Walrus + append to feed.
+    // Isolated in their own try/catch: a Walrus or feed write failure must not
+    // prevent the remaining vaults in this tick from being processed (Fix I-2).
+    try {
+      const blobId = await storeDecision({
+        ts,
+        vaultId: v.vaultId,
+        owner: v.owner,
+        sub: v.sub,
+        apys,
+        decision: rawDecision,
+        txDigest: digest,
+        status,
+      })
+      if (blobId) console.log(`  [vault ${v.vaultId.slice(0, 10)}…] ↳ decision stored on Walrus: ${blobId}`)
 
-    // Append to the feed (HOLDs included — preserves reasoning audit trail).
-    appendDecision({
-      n,
-      ts,
-      apys,
-      from: current,
-      action: rawDecision.action,
-      target: rawDecision.target,
-      amount: rawDecision.amount,
-      reasoning: `[vault ${v.vaultId.slice(0, 10)}…] ${rawDecision.reasoning}`,
-      by: rawDecision.by,
-      status,
-      txDigest: digest,
-      blobId,
-    })
+      // Append to the feed (HOLDs included — preserves reasoning audit trail).
+      appendDecision({
+        n,
+        ts,
+        apys,
+        from: vaultCurrent,
+        action: rawDecision.action,
+        target: rawDecision.target,
+        amount: rawDecision.amount,
+        reasoning: `[vault ${v.vaultId.slice(0, 10)}…] ${rawDecision.reasoning}`,
+        by: rawDecision.by,
+        status,
+        txDigest: digest,
+        blobId,
+      })
+    } catch (auditErr: any) {
+      // Audit-write failure is non-fatal: log and continue to the next vault.
+      console.warn(
+        `  [vault ${v.vaultId.slice(0, 10)}…] ✗ audit write failed (Walrus/feed): ${String(auditErr?.message ?? auditErr).split("\n")[0]}`,
+      )
+    }
   }
 }
