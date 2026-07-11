@@ -118,10 +118,16 @@ export function VaultBento() {
   const [err, setErr] = useState<string | null>(null)
   const [digest, setDigest] = useState<string | null>(null)
 
-  // Claude MCP connector state
+  // Claude MCP connector state. Claude web connects via OAuth using just the URL — no
+  // token to paste. The static-token path is kept as an "advanced" option for API/CLI.
+  const [mcpUrl, setMcpUrl] = useState("")
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [mcp, setMcp] = useState<{ url: string; header: string } | null>(null)
   const [mcpBusy, setMcpBusy] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
+  useEffect(() => {
+    setMcpUrl(`${window.location.origin}/api/mcp/mcp`)
+  }, [])
   const genMcp = async () => {
     setMcpBusy(true)
     try {
@@ -519,47 +525,76 @@ export function VaultBento() {
       <Cell title="// CONNECT TO CLAUDE (MCP)" className="col-span-full">
         <div className="flex flex-col gap-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Talk to your vault from Claude. Generate a private connector, then in Claude → Settings → Connectors →
-            Add custom connector, paste the URL and add an <span className="text-foreground">Authorization</span> header.
-            Then ask Claude “how’s my vault doing?” or “pause my agent”.
+            Talk to your vault from Claude. In Claude → Settings → Connectors → <span className="text-foreground">Add custom connector</span>,
+            paste the URL below and click Connect. Claude opens a Talos sign-in — approve it and you’re linked
+            (no token to copy). Then ask “how’s my vault doing?” or “pause my agent”.
           </p>
-          {!mcp ? (
+
+          <div className="flex items-center gap-2">
+            <span className="w-24 shrink-0 text-[9px] uppercase tracking-widest text-muted-foreground">Connector URL</span>
+            <code className="min-w-0 flex-1 truncate border border-border bg-black/30 px-2 py-1 font-mono text-[11px] text-foreground">
+              {mcpUrl}
+            </code>
             <button
-              onClick={genMcp}
-              disabled={mcpBusy}
-              className="w-fit border-2 border-accent px-4 py-1.5 text-[11px] uppercase tracking-widest text-accent transition-colors hover:bg-accent hover:text-background disabled:opacity-40"
+              onClick={() => copy("URL", mcpUrl)}
+              className="shrink-0 border-2 border-accent px-3 py-1 text-[9px] uppercase tracking-widest text-accent transition-colors hover:bg-accent hover:text-background"
             >
-              {mcpBusy ? "…" : "Generate connector"}
+              {copied === "URL" ? "copied" : "copy"}
             </button>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {[
-                { label: "URL", value: mcp.url },
-                { label: "Header  ·  Authorization", value: mcp.header },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex items-center gap-2">
-                  <span className="w-40 shrink-0 text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
-                  <code className="min-w-0 flex-1 truncate border border-border bg-black/30 px-2 py-1 font-mono text-[11px] text-foreground">
-                    {value}
-                  </code>
-                  <button
-                    onClick={() => copy(label, value)}
-                    className="shrink-0 border border-border px-2 py-1 text-[9px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
-                  >
-                    {copied === label ? "copied" : "copy"}
-                  </button>
-                </div>
-              ))}
-              <div className="flex items-center gap-3 pt-1">
-                <span className="text-[9px] uppercase tracking-widest text-amber-400">keep this token private · full read + pause access</span>
+          </div>
+
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              onClick={revokeMcp}
+              disabled={mcpBusy}
+              className="text-[9px] uppercase tracking-widest text-muted-foreground hover:text-red-400 disabled:opacity-40"
+            >
+              disconnect all
+            </button>
+            <span className="text-[9px] uppercase tracking-widest text-muted-foreground/60">·</span>
+            <button
+              onClick={() => setShowAdvanced((s) => !s)}
+              className="text-[9px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+            >
+              {showAdvanced ? "hide" : "advanced"}: api/cli token
+            </button>
+          </div>
+
+          {showAdvanced && (
+            <div className="flex flex-col gap-2 border-t border-border pt-3">
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
+                For API/CLI clients that accept a static bearer token (Claude web uses OAuth above, not this).
+              </p>
+              {!mcp ? (
                 <button
-                  onClick={revokeMcp}
+                  onClick={genMcp}
                   disabled={mcpBusy}
-                  className="text-[9px] uppercase tracking-widest text-muted-foreground hover:text-red-400 disabled:opacity-40"
+                  className="w-fit border border-border px-4 py-1.5 text-[11px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
                 >
-                  revoke
+                  {mcpBusy ? "…" : "Generate token"}
                 </button>
-              </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {[
+                    { label: "URL", value: mcp.url },
+                    { label: "Header  ·  Authorization", value: mcp.header },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="w-40 shrink-0 text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
+                      <code className="min-w-0 flex-1 truncate border border-border bg-black/30 px-2 py-1 font-mono text-[11px] text-foreground">
+                        {value}
+                      </code>
+                      <button
+                        onClick={() => copy(label, value)}
+                        className="shrink-0 border border-border px-2 py-1 text-[9px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                      >
+                        {copied === label ? "copied" : "copy"}
+                      </button>
+                    </div>
+                  ))}
+                  <span className="text-[9px] uppercase tracking-widest text-amber-400">keep this token private · full read + pause access</span>
+                </div>
+              )}
             </div>
           )}
         </div>
