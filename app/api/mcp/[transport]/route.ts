@@ -1,5 +1,5 @@
-import { createMcpHandler, withMcpAuth } from "mcp-handler";
-import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { createMcpHandler } from "mcp-handler";
 import { verifyMcpToken } from "@/lib/wallet/mcp-token";
 import { users } from "@/lib/wallet/mongo";
 import { signSession, SESSION_COOKIE } from "@/lib/wallet/session";
@@ -7,13 +7,20 @@ import { signSession, SESSION_COOKIE } from "@/lib/wallet/session";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// The MCP tools reuse the existing session-gated routes by calling this same app over
-// loopback as the authenticated user — so all vault/policy/RPC logic (and its reliable
-// RPC) is shared, and the MCP layer stays a thin, per-user wrapper.
+// Per-request user context. We do plain bearer auth (NOT withMcpAuth) so a missing/invalid
+// token returns a plain 401 rather than an OAuth `WWW-Authenticate` challenge — Claude's
+// connector setup would otherwise try OAuth discovery (resource_metadata 404s) and report
+// "couldn't connect", instead of just sending the configured Authorization header.
+const subStore = new AsyncLocalStorage<string>();
+const currentSub = () => subStore.getStore()!;
+
+// Tools reuse the existing session-gated routes by calling this app over loopback as the
+// authenticated user — so all vault/policy/RPC logic (and its reliable RPC) is shared.
 const BASE = process.env.MCP_INTERNAL_BASE || "http://127.0.0.1:3000";
 const usd = (x: unknown) => (Number(x ?? 0) / 1e6).toFixed(4);
 
-async function cookieFor(sub: string): Promise<string> {
+async function cookieForCurrent(): Promise<string> {
+  const sub = currentSub();
   const u = await (await users()).findOne({ sub });
   const token = await signSession({ sub, email: u?.email ?? "" });
   return `${SESSION_COOKIE}=${token}`;
@@ -31,8 +38,6 @@ async function postJson(path: string, body: unknown, cookie: string) {
   return res.json();
 }
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
-const subOf = (extra: { authInfo?: AuthInfo }) =>
-  (extra.authInfo?.extra as { sub?: string } | undefined)?.sub ?? (extra.authInfo?.clientId as string);
 
 const handler = createMcpHandler(
   (server) => {
@@ -44,8 +49,8 @@ const handler = createMcpHandler(
           "Your Talos vault: idle USDC, deployed lending position (which venue, earning), principal, policy status and remaining budget.",
         inputSchema: {},
       },
-      async (_args, extra) => {
-        const v = await getJson("/api/wallet/vault", await cookieFor(subOf(extra)));
+      async () => {
+        const v = await getJson("/api/wallet/vault", await cookieForCurrent());
         if (!v?.exists) return text("No vault yet — create one in the Talos app first.");
         const pos = v.position
           ? `deployed: ${usd(v.position.deployed)} USDC in ${v.position.venue} (earning)`
@@ -79,8 +84,8 @@ const handler = createMcpHandler(
     server.registerTool(
       "pause_agent",
       { title: "Pause your agent", description: "Pause the swarm for your vault — it stops rebalancing your funds until you resume. Reversible.", inputSchema: {} },
-      async (_args, extra) => {
-        const r = await postJson("/api/wallet/agent", { paused: true }, await cookieFor(subOf(extra)));
+      async () => {
+        const r = await postJson("/api/wallet/agent", { paused: true }, await cookieForCurrent());
         return text(r?.paused === true ? "Agent paused — the swarm will skip your vault until you resume." : "Could not pause the agent.");
       },
     );
@@ -88,8 +93,8 @@ const handler = createMcpHandler(
     server.registerTool(
       "resume_agent",
       { title: "Resume your agent", description: "Resume the swarm for your vault — it starts managing your funds again.", inputSchema: {} },
-      async (_args, extra) => {
-        const r = await postJson("/api/wallet/agent", { paused: false }, await cookieFor(subOf(extra)));
+      async () => {
+        const r = await postJson("/api/wallet/agent", { paused: false }, await cookieForCurrent());
         return text(r?.paused === false ? "Agent resumed — the swarm is managing your vault again." : "Could not resume the agent.");
       },
     );
@@ -98,16 +103,19 @@ const handler = createMcpHandler(
   { basePath: "/api/mcp", maxDuration: 60, verboseLogs: true },
 );
 
-// Per-user bearer auth: validate the token, then confirm it hasn't been revoked
-// (its version must still match the user's current mcpTokenVersion).
-const verifyToken = async (_req: Request, bearerToken?: string): Promise<AuthInfo | undefined> => {
-  if (!bearerToken) return undefined;
-  const claims = await verifyMcpToken(bearerToken);
-  if (!claims) return undefined;
-  const u = await (await users()).findOne({ sub: claims.sub });
-  if (!u || (u.mcpTokenVersion ?? 0) !== claims.tv) return undefined;
-  return { token: bearerToken, clientId: claims.sub, scopes: claims.scope.split("+"), extra: { sub: claims.sub } };
-};
+const unauthorized = () =>
+  new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
 
-const authHandler = withMcpAuth(handler, verifyToken, { required: true });
-export { authHandler as GET, authHandler as POST, authHandler as DELETE };
+// Plain bearer auth → run the handler inside the user's async context.
+async function authed(req: Request): Promise<Response> {
+  const auth = req.headers.get("authorization") ?? "";
+  const bearer = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : null;
+  if (!bearer) return unauthorized();
+  const claims = await verifyMcpToken(bearer);
+  if (!claims) return unauthorized();
+  const u = await (await users()).findOne({ sub: claims.sub });
+  if (!u || (u.mcpTokenVersion ?? 0) !== claims.tv) return unauthorized();
+  return subStore.run(claims.sub, () => handler(req) as Promise<Response>);
+}
+
+export { authed as GET, authed as POST, authed as DELETE };
