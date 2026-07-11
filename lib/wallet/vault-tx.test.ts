@@ -24,14 +24,13 @@ const kinds = (tx: { getData(): { commands?: { $kind: string }[] } }): string[] 
   const tx = buildCreateVault({ policyId: ID, allowedPositions: [] });
   const ks = kinds(tx);
   assert.ok(ks.includes("MakeMoveVec"), "create_vault must build `allowed` with MakeMoveVec, not a pure arg");
-  assert.ok(ks.includes("MoveCall"), "create_vault must issue the MoveCall");
+  // Defaults to the composable venue position types → 2 type_name::get + 1 create_vault.
+  // A vault created with an EMPTY allow-list can never hold a position (EPositionNotAllowed).
+  assert.ok(
+    ks.filter((k) => k === "MoveCall").length >= 3,
+    "create_vault must build allowed TypeNames via type_name::get + the create call",
+  );
 }
-
-// non-empty allow-list is unsupported (a TypeName can't be a pure arg either)
-assert.throws(
-  () => buildCreateVault({ policyId: ID, allowedPositions: ["0x1::x::Y"] }),
-  "non-empty allowedPositions must throw",
-);
 
 // ── deposit: split the coin, then supply ────────────────────────────────────
 {

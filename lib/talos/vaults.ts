@@ -54,7 +54,7 @@ async function getObjRetry(id: string, tries = 3): Promise<Awaited<ReturnType<ty
 // These are the Move type names stored as dynamic-field keys (PosKey { t: TypeName }).
 // Full type strings match vault-exec.ts constants.
 const SCALLOP_SUSDC_TYPENAME =
-  "0x55588ffc90718301696fd5497a7b6e82c0f86c15d58e41fc9750a24329ee2523::scallop_usdc::SCALLOP_USDC"
+  "0x854950aa624b1df59fe64e630b2ba7c550642e9342267a33061d59fb31582da5::scallop_usdc::SCALLOP_USDC"
 // Kai yUSDC typename — the "struct_tag" RPC returns uses the package::module::type form
 // and may include type params; we match by substring to be robust across SDK versions.
 const KAI_YUSDC_TYPENAME_FRAGMENT = "kai"
@@ -79,6 +79,9 @@ export type VaultRef = {
   /** Vault.principal (total USDC ever deposited, base units). 0 = never funded → the
    *  multi-user cycle skips it (nothing to manage). Falls back to 0 on RPC error. */
   principal: number
+  /** Vault.usdc — idle (undeployed) USDC balance, base units (1e6 = 1 USDC). >0 means
+   *  there is cash to supply into a venue. Falls back to 0 on RPC error. */
+  idleUsdc: number
 }
 
 const PAGE_SIZE = 50
@@ -173,6 +176,7 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
     // - No matching position field (idle vault) → "scallop" (conservative default)
     const vaultToVenue = new Map<string, string>()
     const vaultToPrincipal = new Map<string, number>()
+    const vaultToIdle = new Map<string, number>()
     await Promise.all(
       liveEntries.map(async ({ vaultId }) => {
         try {
@@ -199,14 +203,22 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
           vaultToVenue.set(vaultId, "scallop")
         }
 
-        // Read the vault's principal so the multi-user cycle can skip never-funded vaults.
+        // Read the vault's principal (skip never-funded) and idle USDC (cash to deploy).
         try {
           const obj = await getObjRetry(vaultId)
           const vf = (obj.data as any)?.content?.fields
           vaultToPrincipal.set(vaultId, Number(vf?.principal ?? 0) || 0)
+          // usdc is a Balance<S> — { fields: { value } } — or occasionally a bare number.
+          const usdcRaw = vf?.usdc
+          const idle =
+            usdcRaw && typeof usdcRaw === "object" && usdcRaw.fields
+              ? Number(usdcRaw.fields.value ?? 0)
+              : Number(usdcRaw ?? 0)
+          vaultToIdle.set(vaultId, idle || 0)
         } catch (err) {
-          console.warn(`[vaults] getObject(${vaultId}) for principal failed, defaulting to 0:`, err)
+          console.warn(`[vaults] getObject(${vaultId}) for principal/idle failed, defaulting to 0:`, err)
           vaultToPrincipal.set(vaultId, 0)
+          vaultToIdle.set(vaultId, 0)
         }
       }),
     )
@@ -220,6 +232,7 @@ export async function listActiveVaults(): Promise<VaultRef[]> {
       perTxCap,
       remainingBudget,
       principal: vaultToPrincipal.get(vaultId) ?? 0,
+      idleUsdc: vaultToIdle.get(vaultId) ?? 0,
     }))
   } catch (err) {
     console.error("[vaults] listActiveVaults error — returning []:", err)

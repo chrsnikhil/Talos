@@ -1,7 +1,7 @@
 import { AGENT_ADDRESS, PACKAGE_ID } from "./config"
 import { readPolicy, authorizeSpend } from "./chain"
 import { getApys } from "./yields"
-import { decide, decideWithLLM } from "./decide"
+import { decide, decideWithLLM, type Decision } from "./decide"
 import { storeDecision } from "./walrus"
 import { appendDecision } from "./feed"
 import { placeRealOrder, deepbookEnabled } from "./deepbook"
@@ -199,41 +199,36 @@ export async function runMultiUserCycle(n: number): Promise<void> {
       continue
     }
 
-    // Build the policy view from the real on-chain values read by listActiveVaults.
-    // perTxCap and remainingBudget come from the vault's AgentPolicy object (already
-    // fetched during liveness check). Falls back to safe conservative defaults if RPC failed.
-    const policyView = { remaining_budget: v.remainingBudget, per_tx_cap: v.perTxCap }
-
-    // Decide — per vault, using this vault's current venue (not the flagship agent's).
-    // v.currentVenue is inferred from the vault's dynamic fields (see vaults.ts).
-    const vaultCurrent = v.currentVenue
-    let rawDecision = (await decideWithLLM(vaultCurrent, apys, policyView, v.perTxCap)) ?? decide(vaultCurrent, apys, policyView, v.perTxCap)
-
-    // Constrain the executable target to SUPPORTED_VENUES.
-    // If the decided venue is not vault-composable, find the best supported one
-    // that still beats the current position by the threshold, else HOLD.
-    if (rawDecision.action === "REBALANCE" && !SUPPORTED_VENUES.has(rawDecision.target)) {
-      // Find the highest-APY supported venue that clears the threshold vs current.
-      const curApy = apys.find((a) => a.protocol === vaultCurrent)?.apy ?? 0
-      const bestSupported = [...apys]
-        .filter((a) => SUPPORTED_VENUES.has(a.protocol) && a.protocol !== vaultCurrent)
-        .sort((a, b) => b.apy - a.apy)[0]
-      const THRESHOLD_PP = Number(process.env.TALOS_THRESHOLD_PP ?? 0.25)
-      if (bestSupported && bestSupported.apy - curApy >= THRESHOLD_PP) {
-        rawDecision = {
-          ...rawDecision,
-          target: bestSupported.protocol,
-          reasoning: `${rawDecision.reasoning} [constrained from ${rawDecision.target} to best supported: ${bestSupported.protocol}]`,
-        }
+    // Decision — this cycle supports the SUPPLY-from-idle path (rebalanceVault =
+    // borrow_for_supply → venue deposit → return_position). A vault holding IDLE USDC
+    // (v.idleUsdc, base units) gets it deployed into the best vault-composable venue
+    // (scallop/kai). Fully-positioned vaults HOLD — a position→position move needs an
+    // unwind leg not wired here yet. NOTE: rebalanceVault scales decision.amount by 1e6,
+    // so decision.amount MUST be in whole USDC (not base units — the old code passed base
+    // units, which double-scaled and would abort on borrow_for_supply).
+    let rawDecision: Decision
+    const idleUsdc = v.idleUsdc ?? 0
+    if (idleUsdc > 0) {
+      const bestSupported = [...apys].filter((a) => SUPPORTED_VENUES.has(a.protocol)).sort((a, b) => b.apy - a.apy)[0]
+      if (bestSupported) {
+        // Cap at the idle balance AND the per-tx cap (both base units); convert to whole USDC.
+        const amountBase = Math.min(idleUsdc, v.perTxCap)
+        const amountUsdc = Math.floor(amountBase / 1e4) / 100 // 2dp, floored — never exceeds idle
+        rawDecision =
+          amountUsdc > 0
+            ? {
+                action: "REBALANCE",
+                target: bestSupported.protocol,
+                amount: amountUsdc,
+                reasoning: `deploy ${amountUsdc} idle USDC into ${bestSupported.protocol} (${bestSupported.apy}% — best composable)`,
+                by: "heuristic",
+              }
+            : { action: "HOLD", target: v.currentVenue, amount: 0, reasoning: "idle below min supply", by: "heuristic" }
       } else {
-        rawDecision = {
-          action: "HOLD",
-          target: vaultCurrent,
-          amount: 0,
-          reasoning: `${rawDecision.target} is not vault-composable and no supported venue clears the threshold — holding`,
-          by: rawDecision.by,
-        }
+        rawDecision = { action: "HOLD", target: v.currentVenue, amount: 0, reasoning: "no composable venue available", by: "heuristic" }
       }
+    } else {
+      rawDecision = { action: "HOLD", target: v.currentVenue, amount: 0, reasoning: "fully positioned; cross-venue rebalance not yet enabled", by: "heuristic" }
     }
 
     const move = rawDecision.action === "REBALANCE" ? `${rawDecision.amount} → ${rawDecision.target}` : "—"

@@ -84,19 +84,30 @@ export interface BuildCreateVaultArgs {
 /** std::type_name::TypeName — the element type of the vault's `allowed` argument. */
 const TYPE_NAME_TYPE = "0x1::type_name::TypeName";
 
+/**
+ * Position (receipt) coin types the vault agent is permitted to hold — i.e. the
+ * composable lending venues the swarm can supply into. These go into the vault's
+ * `allowed_positions` at creation (immutable), and `vault::return_position` checks
+ * membership — so a vault created WITHOUT these can never earn. Verified on mainnet.
+ */
+const SCALLOP_SUSDC_POSITION =
+  "0x854950aa624b1df59fe64e630b2ba7c550642e9342267a33061d59fb31582da5::scallop_usdc::SCALLOP_USDC";
+const KAI_YUSDC_POSITION =
+  "0x7ea359636b36e7c027c2cd71adedaf19be658e1477d9e71368a0b3824a0a27ff::yusdc::YUSDC";
+export const DEFAULT_ALLOWED_POSITIONS = [SCALLOP_SUSDC_POSITION, KAI_YUSDC_POSITION];
+
 export function buildCreateVault(args: BuildCreateVaultArgs): Transaction {
   const tx = new Transaction();
-  // `allowed` is `vector<TypeName>`. TypeName is a Move struct, so it CANNOT be
-  // passed as a pure argument (the VM rejects it with InvalidUsageOfPureArg).
-  // Build the vector with MakeMoveVec instead. The UI always passes an empty
-  // allow-list; non-empty TypeName entries can't be constructed client-side as
-  // pure values, so that path is unsupported here.
-  if (args.allowedPositions.length > 0) {
-    throw new Error(
-      "buildCreateVault: non-empty allowedPositions is not supported (TypeName cannot be a pure arg)"
-    );
-  }
-  const allowed = tx.makeMoveVec({ type: TYPE_NAME_TYPE, elements: [] });
+  // `allowed` is `vector<TypeName>`. TypeName is a Move struct → CANNOT be a pure arg
+  // (the VM rejects it with InvalidUsageOfPureArg). Construct each TypeName on-chain via
+  // std::type_name::get<T>() and collect them with MakeMoveVec. Defaults to the composable
+  // venue position types so the swarm can actually deploy the vault's USDC.
+  const positionTypes =
+    args.allowedPositions.length > 0 ? args.allowedPositions : DEFAULT_ALLOWED_POSITIONS;
+  const typeNames = positionTypes.map((t) =>
+    tx.moveCall({ target: "0x1::type_name::get", typeArguments: [t] }),
+  );
+  const allowed = tx.makeMoveVec({ type: TYPE_NAME_TYPE, elements: typeNames });
   tx.moveCall({
     target: `${PACKAGE_ID}::vault::create_vault`,
     typeArguments: [USDC_TYPE],

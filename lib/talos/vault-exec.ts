@@ -51,9 +51,11 @@ const kaiVault = VAULTS.USDC
 // USDC type (native Circle USDC on Sui, shared by Scallop and Kai)
 const USDC_TYPE = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC"
 
-// Scallop sCoin type for USDC position
+// Scallop sCoin type for USDC position — the coin `mintSCoin('susdc', ...)` actually
+// produces (verified on mainnet). The previous 0x55588ffc… address was wrong and caused
+// a TypeMismatch on vault::return_position.
 const SCALLOP_SUSDC_TYPE =
-  "0x55588ffc90718301696fd5497a7b6e82c0f86c15d58e41fc9750a24329ee2523::scallop_usdc::SCALLOP_USDC"
+  "0x854950aa624b1df59fe64e630b2ba7c550642e9342267a33061d59fb31582da5::scallop_usdc::SCALLOP_USDC"
 
 // Kai yUSDC type (the active USDC vault's yield-bearing token)
 const KAI_YUSDC_TYPE = kaiVault.YT.typeName as string
