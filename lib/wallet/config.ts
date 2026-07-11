@@ -14,7 +14,12 @@ export const PACKAGE_ID =
 export const AGENT_POLICY_PKG =
   "0x75b7f5d2926f333d8849726655904111420d4f86acb2578274b31338bcf8142c";
 export const DRIP_SUI = Number(process.env.WALLET_DRIP_SUI ?? 0.05);
-export const suiClient = new SuiClient({ url: getFullnodeUrl(NETWORK) });
+// RPC for all managed-wallet reads/writes. Overridable via WALLET_RPC because the
+// default fullnode is geo-load-balanced and some regions (e.g. the VM's) route to a
+// replica that can't read the newer v2 vault/policy objects or resolve their coins —
+// which breaks the vault UI. Set WALLET_RPC to a consistently-indexed endpoint there.
+export const RPC_URL = process.env.WALLET_RPC || getFullnodeUrl(NETWORK);
+export const suiClient = new SuiClient({ url: RPC_URL });
 
 /** Read a required server-only env var; throw a clear error if missing. */
 export function env(name: string): string {
