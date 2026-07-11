@@ -11,6 +11,17 @@ export const metadata: Metadata = {
   description:
     "TALOS is a swarm of autonomous AI agents that manage real USDC on Sui, bounded by an on-chain Move policy they physically cannot exceed. Sui Overflow 2026, Agentic Web.",
   generator: "Talos",
+  // Explicit icons so clients (incl. the Claude MCP connector) show the Talos mark
+  // instead of falling back to the Azure host domain's brand. app/{icon.svg,favicon.ico}
+  // are also served automatically; these links make them discoverable in the HTML.
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "32x32" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
