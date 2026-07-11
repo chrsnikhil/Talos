@@ -21,6 +21,7 @@ import { llmInfo } from "../lib/talos/llm"
 const INTERVAL_MS = Number(process.env.TALOS_INTERVAL_MS ?? 60000) // one tick / minute
 const STATE_FILE = process.env.TALOS_SWARM_STATE ?? ".talos-swarm.json"
 const MIN_SUI = Number(process.env.TALOS_MIN_SUI ?? 0.1)
+const DRY_RUN = process.env.TALOS_DRY_RUN === "1" // sense + think + tick, no on-chain writes
 const SUI_TYPE = "0x2::sui::SUI"
 
 type SwarmState = {
@@ -83,6 +84,7 @@ async function main() {
   console.log("╚══════════════════════════════════════════════╝")
   console.log("agent:   ", AGENT_ADDRESS)
   console.log("brain:   ", brain)
+  console.log("mode:    ", DRY_RUN ? "DRY-RUN — sense+think+tick only, NO on-chain writes" : "LIVE — real mainnet transactions")
   console.log("interval:", `${INTERVAL_MS}ms`)
   console.log("state:   ", STATE_FILE)
 
@@ -122,15 +124,18 @@ async function main() {
     }
 
     // Gas guard: don't spin uselessly if the wallet can't pay for txs.
-    try {
-      const sui = await client.getBalance({ owner: AGENT_ADDRESS, coinType: SUI_TYPE })
-      if (Number(sui.totalBalance) / 1e9 < MIN_SUI) {
-        console.log(`low gas (< ${MIN_SUI} SUI) — pausing this tick.`)
-        await sleep(INTERVAL_MS)
-        continue
+    // Skipped in dry-run (the ephemeral key holds no SUI and signs nothing).
+    if (!DRY_RUN) {
+      try {
+        const sui = await client.getBalance({ owner: AGENT_ADDRESS, coinType: SUI_TYPE })
+        if (Number(sui.totalBalance) / 1e9 < MIN_SUI) {
+          console.log(`low gas (< ${MIN_SUI} SUI) — pausing this tick.`)
+          await sleep(INTERVAL_MS)
+          continue
+        }
+      } catch {
+        /* non-fatal; let the cycle try */
       }
-    } catch {
-      /* non-fatal; let the cycle try */
     }
 
     state.cycles += 1
@@ -139,7 +144,7 @@ async function main() {
     // Runs unconditionally; a failure here does not affect the multi-user cycle.
     try {
       await runCycle(n) // Icarus: sense → think → act (policy-gated) → Walrus
-      await runCritique() // Daedalus: grade any new rebalances on-chain
+      if (!DRY_RUN) await runCritique() // Daedalus: grade any new rebalances on-chain (signs — skip in dry-run)
     } catch (e: any) {
       console.error(`[#${n}] flagship tick error:`, e?.message ?? e)
     }

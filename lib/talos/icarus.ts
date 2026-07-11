@@ -33,6 +33,10 @@ const USDC_CHUNK = Number(process.env.TALOS_USDC_CHUNK ?? 0.5) // real USDC per 
 
 let current = process.env.TALOS_START_PROTOCOL ?? "scallop"
 
+// Dry-run: sense + think + record, but never sign/move funds. Lets the swarm run
+// locally (heartbeat + cycles + live brain) with no agent key and zero fund risk.
+const DRY_RUN = process.env.TALOS_DRY_RUN === "1"
+
 /** One Icarus cycle: sense → think → act (on-chain, policy-gated) → record (Walrus). */
 export async function runCycle(n: number): Promise<void> {
   const policy = await readPolicy()
@@ -58,7 +62,11 @@ export async function runCycle(n: number): Promise<void> {
   let status: string | undefined
   let deepbookDigest: string | null = null
   let lendingDigest: string | null = null
-  if (decision.action === "REBALANCE" && decision.amount > 0) {
+  if (decision.action === "REBALANCE" && decision.amount > 0 && DRY_RUN) {
+    status = "dry-run"
+    current = decision.target
+    console.log(`   ~ DRY_RUN — would authorize_spend ${decision.amount} → ${decision.target} (no tx sent)`)
+  } else if (decision.action === "REBALANCE" && decision.amount > 0) {
     try {
       const r = await authorizeSpend(decision.amount, decision.target)
       digest = r.digest
@@ -116,7 +124,9 @@ export async function runCycle(n: number): Promise<void> {
     }
   }
 
-  const blobId = await storeDecision({ ts, agent: AGENT_ADDRESS, apys, decision, txDigest: digest, deepbookDigest, lendingDigest, status })
+  // Skip the Walrus publish in dry-run — it's a slow external write we don't need
+  // locally, and blocking on it would stall the heartbeat.
+  const blobId = DRY_RUN ? null : await storeDecision({ ts, agent: AGENT_ADDRESS, apys, decision, txDigest: digest, deepbookDigest, lendingDigest, status })
   if (blobId) console.log(`   ↳ decision stored on Walrus: ${blobId}`)
 
   // Mirror the decision into the local feed so the dashboard can stream Icarus's reasoning
@@ -159,6 +169,10 @@ const MULTI_USER_ENABLED = PACKAGE_ID === V2_PACKAGE_ID
  *   the cycle enumerates vaults and logs decisions but skips actual rebalances.
  */
 export async function runMultiUserCycle(n: number): Promise<void> {
+  if (DRY_RUN) {
+    console.log(`[multi-user #${n}] DRY_RUN — skipping user-vault rebalances.`)
+    return
+  }
   const vaults = await listActiveVaults()
   if (vaults.length === 0) {
     console.log(`[multi-user #${n}] no active vaults — skipping.`)

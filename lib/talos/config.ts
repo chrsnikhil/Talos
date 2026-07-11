@@ -29,7 +29,17 @@ export const WALRUS_PUBLISHER = process.env.WALRUS_PUBLISHER || "https://publish
 export const client = new SuiClient({ url: RPC })
 
 function loadKeypair(): Ed25519Keypair {
-  const { secretKey } = decodeSuiPrivateKey(req("TALOS_AGENT_KEY"))
+  const raw = process.env.TALOS_AGENT_KEY
+  if (!raw) {
+    // Dry-run: no real spends are signed, so an ephemeral throwaway key is fine.
+    // Lets anyone watch the swarm sense/think/tick locally without the agent secret.
+    if (process.env.TALOS_DRY_RUN === "1") {
+      console.warn("[config] TALOS_DRY_RUN=1 and no TALOS_AGENT_KEY — using an ephemeral key (no real txs will be signed).")
+      return new Ed25519Keypair()
+    }
+    throw new Error("Missing env var TALOS_AGENT_KEY (set it in .env.local)")
+  }
+  const { secretKey } = decodeSuiPrivateKey(raw)
   return Ed25519Keypair.fromSecretKey(secretKey)
 }
 
