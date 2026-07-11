@@ -36,3 +36,26 @@ export async function verifyMcpToken(token: string): Promise<McpClaims | null> {
     return null;
   }
 }
+
+/** Long-lived refresh token issued by the OAuth token endpoint. Same secret + tv
+ *  revocation as the access token; distinguished by a `typ:"refresh"` claim. */
+export async function mintRefreshToken(sub: string, tv: number): Promise<string> {
+  return new SignJWT({ tv, typ: "refresh" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(sub)
+    .setIssuedAt()
+    .setExpirationTime("180d")
+    .sign(secret());
+}
+
+export async function verifyRefreshToken(token: string): Promise<{ sub: string; tv: number } | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    if (payload.typ === "refresh" && typeof payload.sub === "string" && typeof payload.tv === "number") {
+      return { sub: payload.sub, tv: payload.tv };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}

@@ -3,14 +3,16 @@ import { createMcpHandler } from "mcp-handler";
 import { verifyMcpToken } from "@/lib/wallet/mcp-token";
 import { users } from "@/lib/wallet/mongo";
 import { signSession, SESSION_COOKIE } from "@/lib/wallet/session";
+import { issuer, CORS_HEADERS, corsPreflight } from "@/lib/wallet/oauth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Per-request user context. We do plain bearer auth (NOT withMcpAuth) so a missing/invalid
-// token returns a plain 401 rather than an OAuth `WWW-Authenticate` challenge — Claude's
-// connector setup would otherwise try OAuth discovery (resource_metadata 404s) and report
-// "couldn't connect", instead of just sending the configured Authorization header.
+// Per-request user context. Bearer auth: a missing/invalid token returns 401 WITH an
+// OAuth `WWW-Authenticate` challenge pointing at our Protected Resource Metadata —
+// this is exactly what makes Claude.ai web start its OAuth 2.1 discovery (it does NOT
+// support static bearer headers on custom connectors). Valid tokens are the per-user
+// JWTs minted by the OAuth token endpoint (or the manual /api/wallet/mcp-token route).
 const subStore = new AsyncLocalStorage<string>();
 const currentSub = () => subStore.getStore()!;
 
@@ -103,10 +105,23 @@ const handler = createMcpHandler(
   { basePath: "/api/mcp", maxDuration: 60, verboseLogs: true },
 );
 
+// 401 with the RFC 9728 resource_metadata pointer → triggers Claude's OAuth discovery.
 const unauthorized = () =>
-  new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
+  new Response(JSON.stringify({ error: "invalid_token", error_description: "authorization required" }), {
+    status: 401,
+    headers: {
+      "content-type": "application/json",
+      "WWW-Authenticate": `Bearer error="invalid_token", resource_metadata="${issuer()}/.well-known/oauth-protected-resource"`,
+      ...CORS_HEADERS,
+    },
+  });
 
-// Plain bearer auth → run the handler inside the user's async context.
+function withCors(res: Response): Response {
+  for (const [k, v] of Object.entries(CORS_HEADERS)) res.headers.set(k, v);
+  return res;
+}
+
+// Bearer auth → run the handler inside the user's async context.
 async function authed(req: Request): Promise<Response> {
   const auth = req.headers.get("authorization") ?? "";
   const bearer = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : null;
@@ -115,7 +130,9 @@ async function authed(req: Request): Promise<Response> {
   if (!claims) return unauthorized();
   const u = await (await users()).findOne({ sub: claims.sub });
   if (!u || (u.mcpTokenVersion ?? 0) !== claims.tv) return unauthorized();
-  return subStore.run(claims.sub, () => handler(req) as Promise<Response>);
+  const res = await subStore.run(claims.sub, () => handler(req) as Promise<Response>);
+  return withCors(res);
 }
 
 export { authed as GET, authed as POST, authed as DELETE };
+export const OPTIONS = () => corsPreflight();

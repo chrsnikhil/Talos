@@ -10,8 +10,12 @@ function oauth() {
   );
 }
 
-export function googleAuthUrl(): string {
-  return oauth().generateAuthUrl({ access_type: "online", scope: ["openid", "email", "profile"] });
+export function googleAuthUrl(state?: string): string {
+  return oauth().generateAuthUrl({
+    access_type: "online",
+    scope: ["openid", "email", "profile"],
+    ...(state ? { state } : {}),
+  });
 }
 
 export async function exchangeCode(code: string): Promise<{ sub: string; email: string }> {
