@@ -67,7 +67,7 @@ export default function SignInHero() {
 
         {/* Tagline */}
         <div className="flex flex-col items-center gap-3 max-w-2xl">
-          <p className="font-pixel text-2xl sm:text-3xl lg:text-4xl text-foreground leading-[1.1] tracking-tight">
+          <p className="font-mono font-bold text-xl sm:text-2xl lg:text-3xl text-foreground leading-[1.15] tracking-tight">
             YOUR EMBEDDED VAULT<span className="text-[var(--accent-color)]">.</span>
             <br />
             <span className="text-[var(--accent-color)]">NO SEED PHRASE</span>
