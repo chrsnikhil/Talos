@@ -1,4 +1,4 @@
-import { AGENT_ADDRESS } from "./config"
+import { AGENT_ADDRESS, PACKAGE_ID } from "./config"
 import { readPolicy, authorizeSpend } from "./chain"
 import { getApys } from "./yields"
 import { decide, decideWithLLM } from "./decide"
@@ -9,6 +9,9 @@ import { depositUsdc as scallopDeposit, withdrawUsdc as scallopWithdraw } from "
 import { depositUsdc as naviDeposit, withdrawUsdc as naviWithdraw } from "./navi"
 import { depositUsdc as kaiDeposit, withdrawUsdc as kaiWithdraw } from "./kai"
 import { depositUsdc as heliosDeposit, withdrawUsdc as heliosWithdraw } from "./sevenk"
+import { listActiveVaults } from "./vaults"
+import { isPaused } from "./paused"
+import { rebalanceVault, SUPPORTED_VENUES } from "./vault-exec"
 
 const CHUNK = Number(process.env.TALOS_CHUNK ?? 100) // size of a single rebalance, in budget units
 
@@ -132,4 +135,135 @@ export async function runCycle(n: number): Promise<void> {
     txDigest: digest,
     blobId,
   })
+}
+
+// Package v2 address — vault rebalances are only executed when the swarm is running
+// against v2. On the current VM (v1), multi-user enumeration runs but rebalances are
+// skipped, so the live track record is preserved and nothing changes until v2 is deployed.
+const V2_PACKAGE_ID = "0x9c49978732d2e8cb38f0744f825bc1d5431f34582811bfef6b099c785a22031f"
+const MULTI_USER_ENABLED = PACKAGE_ID === V2_PACKAGE_ID
+
+/**
+ * Multi-user Icarus cycle: iterate every active user vault once per tick.
+ *
+ * - Shared APY read (one fetch serves all vaults).
+ * - Each vault: skip if the user has paused; decide per vault; rebalance if
+ *   action=REBALANCE and the target venue is composable into the hot-potato PTB
+ *   (SUPPORTED_VENUES). If the best venue isn't supported, constrain the decision
+ *   to the best supported venue or HOLD — never attempt an unsupported venue.
+ * - Every vault decision is stored on Walrus and appended to the feed regardless
+ *   of whether a rebalance fires — this preserves the reasoning audit trail.
+ * - One vault's failure never kills the tick: errors are caught per-vault.
+ * - If listActiveVaults() returns [], this is a cheap no-op — no APY fetch needed.
+ * - Gated on MULTI_USER_ENABLED (TALOS_PACKAGE_ID === v2). When running against v1
+ *   the cycle enumerates vaults and logs decisions but skips actual rebalances.
+ */
+export async function runMultiUserCycle(n: number): Promise<void> {
+  const vaults = await listActiveVaults()
+  if (vaults.length === 0) {
+    console.log(`[multi-user #${n}] no active vaults — skipping.`)
+    return
+  }
+
+  const ts = new Date().toISOString()
+  // Shared APY read — done ONCE for all vaults in this tick.
+  const apys = await getApys()
+  const feed = apys.map((a) => `${a.protocol} ${a.apy}%`).join(" · ")
+  console.log(`[multi-user #${n}] ${vaults.length} vault(s) · ${feed}`)
+
+  for (const v of vaults) {
+    // Pause check: skip if the vault owner has paused their agent.
+    // sub undefined means no Mongo record found — do NOT skip (safe degradation).
+    if (v.sub && (await isPaused(v.sub))) {
+      console.log(`  [vault ${v.vaultId.slice(0, 10)}…] owner ${v.owner.slice(0, 10)}… PAUSED — skipping.`)
+      continue
+    }
+
+    // Build a minimal policy view from what listActiveVaults already validated.
+    // For per-vault budget/cap we would need to re-read the policy object; for now
+    // we use CHUNK as the per-tx cap (matches the flagship agent's sizing).
+    const policyView = { remaining_budget: CHUNK * 10, per_tx_cap: CHUNK }
+
+    // Decide — per vault, same APY snapshot.
+    let rawDecision = (await decideWithLLM(current, apys, policyView, CHUNK)) ?? decide(current, apys, policyView, CHUNK)
+
+    // Constrain the executable target to SUPPORTED_VENUES.
+    // If the decided venue is not vault-composable, find the best supported one
+    // that still beats the current position by the threshold, else HOLD.
+    if (rawDecision.action === "REBALANCE" && !SUPPORTED_VENUES.has(rawDecision.target)) {
+      // Find the highest-APY supported venue that clears the threshold vs current.
+      const curApy = apys.find((a) => a.protocol === current)?.apy ?? 0
+      const bestSupported = [...apys]
+        .filter((a) => SUPPORTED_VENUES.has(a.protocol) && a.protocol !== current)
+        .sort((a, b) => b.apy - a.apy)[0]
+      const THRESHOLD_PP = Number(process.env.TALOS_THRESHOLD_PP ?? 0.25)
+      if (bestSupported && bestSupported.apy - curApy >= THRESHOLD_PP) {
+        rawDecision = {
+          ...rawDecision,
+          target: bestSupported.protocol,
+          reasoning: `${rawDecision.reasoning} [constrained from ${rawDecision.target} to best supported: ${bestSupported.protocol}]`,
+        }
+      } else {
+        rawDecision = {
+          action: "HOLD",
+          target: current,
+          amount: 0,
+          reasoning: `${rawDecision.target} is not vault-composable and no supported venue clears the threshold — holding`,
+          by: rawDecision.by,
+        }
+      }
+    }
+
+    const move = rawDecision.action === "REBALANCE" ? `${rawDecision.amount} → ${rawDecision.target}` : "—"
+    console.log(`  [vault ${v.vaultId.slice(0, 10)}…] ⇒ ${rawDecision.action} ${move}  (${rawDecision.by}: ${rawDecision.reasoning})`)
+
+    let digest: string | null = null
+    let status: string | undefined
+
+    if (rawDecision.action === "REBALANCE" && rawDecision.amount > 0) {
+      if (!MULTI_USER_ENABLED) {
+        // Running against v1 — log intent but do not move funds.
+        console.log(`  [vault ${v.vaultId.slice(0, 10)}…] MULTI_USER_ENABLED=false (v1 package) — rebalance skipped.`)
+      } else {
+        try {
+          const r = await rebalanceVault(v, rawDecision)
+          digest = r.digest
+          status = r.status
+          console.log(`  [vault ${v.vaultId.slice(0, 10)}…] ✓ rebalanceVault ${digest}  (${status})`)
+        } catch (e: any) {
+          // One vault's failure must not kill the tick — log and continue.
+          console.log(`  [vault ${v.vaultId.slice(0, 10)}…] ✗ rebalanceVault failed: ${String(e?.message ?? e).split("\n")[0]}`)
+        }
+      }
+    }
+
+    // Store decision on Walrus keyed by vault id.
+    const blobId = await storeDecision({
+      ts,
+      vaultId: v.vaultId,
+      owner: v.owner,
+      sub: v.sub,
+      apys,
+      decision: rawDecision,
+      txDigest: digest,
+      status,
+    })
+    if (blobId) console.log(`  [vault ${v.vaultId.slice(0, 10)}…] ↳ decision stored on Walrus: ${blobId}`)
+
+    // Append to the feed (HOLDs included — preserves reasoning audit trail).
+    appendDecision({
+      n,
+      ts,
+      apys,
+      from: current,
+      action: rawDecision.action,
+      target: rawDecision.target,
+      amount: rawDecision.amount,
+      reasoning: `[vault ${v.vaultId.slice(0, 10)}…] ${rawDecision.reasoning}`,
+      by: rawDecision.by,
+      status,
+      txDigest: digest,
+      blobId,
+    })
+  }
 }

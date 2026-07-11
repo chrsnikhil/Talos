@@ -36,7 +36,7 @@ export const mainnetClient = new SuiClient({ url: MAINNET_RPC })
 
 // Protocols that can be composed into the vault hot-potato PTB.
 // Navi excluded — see module docblock.
-const SUPPORTED_VENUES = new Set(["scallop", "kai"])
+export const SUPPORTED_VENUES = new Set(["scallop", "kai"])
 
 // Shared Scallop SDK instance (lazy-initialised)
 let scallopInst: Scallop | null = null

@@ -4,7 +4,7 @@ loadEnv({ path: ".env.local" })
 import { writeFileSync, readFileSync, existsSync } from "fs"
 import { SuiClient } from "@mysten/sui/client"
 import { AGENT_ADDRESS, RPC } from "../lib/talos/config"
-import { runCycle } from "../lib/talos/icarus"
+import { runCycle, runMultiUserCycle } from "../lib/talos/icarus"
 import { runCritique } from "../lib/talos/daedalus"
 import { readPolicy, readReputation } from "../lib/talos/chain"
 import { llmInfo } from "../lib/talos/llm"
@@ -135,11 +135,21 @@ async function main() {
 
     state.cycles += 1
     const n = state.cycles
+    // Flagship single-agent loop — preserves the mainnet proof + track record.
+    // Runs unconditionally; a failure here does not affect the multi-user cycle.
     try {
       await runCycle(n) // Icarus: sense → think → act (policy-gated) → Walrus
       await runCritique() // Daedalus: grade any new rebalances on-chain
     } catch (e: any) {
-      console.error(`[#${n}] tick error:`, e?.message ?? e)
+      console.error(`[#${n}] flagship tick error:`, e?.message ?? e)
+    }
+    // Multi-user cycle — iterates active user vaults. If listActiveVaults() returns []
+    // this is a cheap no-op. Gated on TALOS_PACKAGE_ID=v2; on v1 logs intent only.
+    // A failure here does not affect the flagship loop.
+    try {
+      await runMultiUserCycle(n)
+    } catch (e: any) {
+      console.error(`[#${n}] multi-user tick error:`, e?.message ?? e)
     }
 
     try {
