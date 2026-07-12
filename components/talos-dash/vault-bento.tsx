@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from "react"
 import { SuiClient, getFullnodeUrl } from "@mysten/sui/client"
 import {
+  Area,
   CartesianGrid,
+  ComposedChart,
   Legend,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -369,20 +370,26 @@ export function VaultBento() {
       <Cell
         title="// PERFORMANCE — AGENT vs VENUES"
         className="lg:col-span-3"
-        bodyClass="flex h-full flex-col p-4"
+        bodyClass="flex flex-col p-4"
       >
         <p className="mb-3 text-[10px] uppercase tracking-widest text-muted-foreground">
           agent tracks the best venue · currently holding{" "}
           <span className="text-accent">{holding}</span>
         </p>
-        <div className="min-h-[280px] flex-1">
+        <div className="h-[340px] w-full">
           {series.length < 2 ? (
-            <div className="flex h-full min-h-[280px] items-center justify-center text-center text-[10px] uppercase tracking-widest text-muted-foreground">
+            <div className="flex h-full items-center justify-center text-center text-[10px] uppercase tracking-widest text-muted-foreground">
               collecting live data…
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%" minHeight={280}>
-              <LineChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+                <defs>
+                  <linearGradient id="perfAgent" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={ACCENT} stopOpacity={0.28} />
+                    <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid stroke={GRID} vertical={false} />
                 <XAxis dataKey="t" hide />
                 <YAxis
@@ -431,18 +438,19 @@ export function VaultBento() {
                   connectNulls
                   isAnimationActive={false}
                 />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="agent"
                   name="agent"
                   stroke={ACCENT}
                   strokeWidth={2.5}
+                  fill="url(#perfAgent)"
                   dot={{ fill: ACCENT, r: 2 }}
                   activeDot={{ r: 4, fill: ACCENT, stroke: "transparent" }}
                   connectNulls
                   isAnimationActive={false}
                 />
-              </LineChart>
+              </ComposedChart>
             </ResponsiveContainer>
           )}
         </div>
