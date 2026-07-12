@@ -287,33 +287,38 @@ class Bot {
     this.tipGlow.position.copy(this.tip.position)
     torso.add(this.tipGlow)
 
-    /* ── lab coat — an open white coat over the lower torso (kept below the
-       visor so the face stays clear), with a breast pocket + a little green pen.
-       The green chest core still shows in the gap between the panels. ── */
-    const COAT = 0xeceff5
-    obox(torso, 0.46, 0.4, 0.56, COAT, -0.26, 0.3, 0, 0, true, OUTLINE, 0.05) // left panel
-    obox(torso, 0.46, 0.4, 0.56, COAT, 0.26, 0.3, 0, 0, true, OUTLINE, 0.05) // right panel
-    obox(torso, 0.98, 0.07, 0.58, COAT, 0, 0.47, 0, 0, true, OUTLINE, 0.04) // collar trim
-    obox(torso, 0.15, 0.12, 0.02, COAT, 0.28, 0.28, 0.285, 0, true, OUTLINE, 0.03) // pocket
-    obox(torso, 0.02, 0.1, 0.02, GREEN, 0.24, 0.33, 0.31, 0, false) // green pen in the pocket
-
-    /* ── pointer stick — a presenter's pointer raised toward the content it's
-       explaining (up + toward the speech bubble on its left/world −x side); dark
-       rod with a glowing green tip that matches the antenna. ── */
-    const ptr = new THREE.Group()
-    ptr.position.set(-0.34, 0.34, 0.34)
-    ptr.rotation.z = 0.5
-    obox(ptr, 0.045, 0.8, 0.045, 0x171310, 0, 0.4, 0, 0, true, OUTLINE, 0.03) // shaft
-    const ptrTip = new THREE.Mesh(
-      new THREE.BoxGeometry(0.085, 0.085, 0.085),
-      new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.95 }),
-    )
-    ptrTip.position.set(0, 0.84, 0)
-    ptr.add(ptrTip)
-    const ptrGlow = glowSprite(GREEN, 0.4, 0.5)
-    ptrGlow.position.set(0, 0.84, 0)
-    ptr.add(ptrGlow)
-    torso.add(ptr)
+    /* ── lab coat — an OPEN white coat worn over the lower torso. Two front
+       panels wrap the sides/back and leave a center-front gap (x ∈ ~[−0.07,
+       0.07]) so the green chest core shows between them; small rz-tilted lapels
+       form a V at the top of the opening. Everything on the front face stays at
+       y ≤ ~0.51 so the mouth (y0.52) / visor (y0.66) remain fully visible; only
+       the shoulder yokes at the far sides (x≈±0.41) rise above that line. ── */
+    const COAT = 0xeceff5 // coat white
+    const SEAM = 0xdbe2ec // light grey — inner-edge seams / shadow
+    const STITCH = 0x9fb0c4 // mid grey — pocket stitching, buttons
+    /* front panels — wrap side+back, inner edges at x ±0.07 (core gap) */
+    obox(torso, 0.42, 0.42, 0.58, COAT, -0.28, 0.29, 0, 0, true, OUTLINE, 0.05)
+    obox(torso, 0.42, 0.42, 0.58, COAT, 0.28, 0.29, 0, 0, true, OUTLINE, 0.05)
+    /* inner-edge seams — slightly darker strips so the opening reads */
+    obox(torso, 0.035, 0.4, 0.015, SEAM, -0.09, 0.29, 0.295, 0, false)
+    obox(torso, 0.035, 0.4, 0.015, SEAM, 0.09, 0.29, 0.295, 0, false)
+    /* lapels — tilted outward to a V; tops at y≈0.50, below the mouth line */
+    obox(torso, 0.09, 0.18, 0.03, COAT, -0.135, 0.4, 0.3, 0.42, true, OUTLINE, 0.03)
+    obox(torso, 0.09, 0.18, 0.03, COAT, 0.135, 0.4, 0.3, -0.42, true, OUTLINE, 0.03)
+    /* shoulder yokes — over the shoulder tops at the far sides, clear of the
+       visor (which ends at x ±0.33) */
+    obox(torso, 0.16, 0.1, 0.54, COAT, -0.41, 0.57, 0, 0, true, OUTLINE, 0.04)
+    obox(torso, 0.16, 0.1, 0.54, COAT, 0.41, 0.57, 0, 0, true, OUTLINE, 0.04)
+    /* waist flare — slightly wider hem band, split to keep the opening */
+    obox(torso, 0.46, 0.09, 0.62, COAT, -0.28, 0.12, 0, 0, true, OUTLINE, 0.045)
+    obox(torso, 0.46, 0.09, 0.62, COAT, 0.28, 0.12, 0, 0, true, OUTLINE, 0.045)
+    /* breast pocket + stitched hem line + green pen (on its right panel) */
+    obox(torso, 0.16, 0.13, 0.02, COAT, -0.29, 0.28, 0.3, 0, true, OUTLINE, 0.025)
+    obox(torso, 0.16, 0.02, 0.012, STITCH, -0.29, 0.335, 0.312, 0, false)
+    obox(torso, 0.025, 0.09, 0.02, GREEN, -0.25, 0.36, 0.305, 0, false)
+    /* buttons down the left panel's placket */
+    obox(torso, 0.05, 0.05, 0.02, STITCH, 0.11, 0.34, 0.3, 0, false)
+    obox(torso, 0.05, 0.05, 0.02, STITCH, 0.11, 0.21, 0.3, 0, false)
 
     this.torso = torso
     this.g = g
@@ -474,7 +479,7 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
   // Transparent scene — no background, no fog; the page shows through.
   const scene = new THREE.Scene()
 
-  // Framed to fit the WHOLE agent (head-to-toe, ears + raised pointer included)
+  // Framed to fit the WHOLE agent (head-to-toe, ears + antenna included)
   // with generous margin so nothing is clipped by the canvas edges.
   const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 50)
   camera.position.set(0, 1.15, 4.8)

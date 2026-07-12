@@ -171,12 +171,29 @@ export function GuidedTour({
   if (rect) {
     const vw = window.innerWidth
     const vh = window.innerHeight
-    let top = rect.bottom + 20
-    if (top + UNIT_H > vh - 16) top = rect.top - UNIT_H - 20
-    let left = rect.left + rect.width / 2 - UNIT_W / 2
-    left = Math.min(Math.max(16, left), Math.max(16, vw - UNIT_W - 16))
-    top = Math.min(Math.max(16, top), Math.max(16, vh - UNIT_H - 16))
-    unitStyle = { left, top }
+    const clampL = (v: number) => Math.min(Math.max(16, v), Math.max(16, vw - UNIT_W - 16))
+    const clampT = (v: number) => Math.min(Math.max(16, v), Math.max(16, vh - UNIT_H - 16))
+    // Whole-tab spotlights all span the screen from the top-left, so parking
+    // "beside" them lands the agent in the same clamped spot every step. For
+    // those, cycle through a rotating set of anchors so it visibly travels/hops
+    // between steps. Specific controls (vault cells) keep the beside behaviour.
+    const large = rect.width > vw * 0.55 || rect.height > vh * 0.55
+    if (large) {
+      const A = [
+        [0.03, 0.30],
+        [0.42, 0.06],
+        [0.03, 0.62],
+        [0.42, 0.6],
+        [0.2, 0.08],
+        [0.03, 0.45],
+      ]
+      const a = A[i % A.length]
+      unitStyle = { left: clampL(vw * a[0]), top: clampT(vh * a[1]) }
+    } else {
+      let top = rect.bottom + 20
+      if (top + UNIT_H > vh - 16) top = rect.top - UNIT_H - 20
+      unitStyle = { left: clampL(rect.left + rect.width / 2 - UNIT_W / 2), top: clampT(top) }
+    }
   } else {
     unitStyle = { left: "50%", top: "50%", transform: "translate(-50%,-50%)" }
   }
