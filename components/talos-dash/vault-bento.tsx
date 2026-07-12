@@ -379,7 +379,7 @@ export function VaultBento() {
       <Cell
         title="// PERFORMANCE — AGENT vs PROTOCOLS"
         className="lg:col-span-3"
-        bodyClass="flex flex-col p-4"
+        bodyClass="flex h-full flex-col p-4"
       >
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -397,9 +397,9 @@ export function VaultBento() {
             ))}
           </div>
         </div>
-        <div className="h-[340px] w-full">
+        <div className="min-h-0 w-full flex-1">
           {perf.length < 2 ? (
-            <div className="flex h-full items-center justify-center text-center text-[10px] uppercase tracking-widest text-muted-foreground">
+            <div className="flex h-full min-h-[300px] items-center justify-center text-center text-[10px] uppercase tracking-widest text-muted-foreground">
               loading {range} history…
             </div>
           ) : (
