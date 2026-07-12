@@ -156,6 +156,7 @@ export function VaultBento() {
 
   const [uplift, setUplift] = useState<Uplift | null>(null)
   const [perf, setPerf] = useState<PerfPoint[]>([])
+  const [range, setRange] = useState<"1d" | "7d" | "30d">("30d")
   const [walletUsdc, setWalletUsdc] = useState<{ total: number; coinId: string | null }>({ total: 0, coinId: null })
 
   // Deposit / withdraw form state
@@ -218,22 +219,23 @@ export function VaultBento() {
     }
   }, [address, vault?.idleUsdc])
 
-  // Real 30-day protocol APY history (Scallop/Navi/Kai via DefiLlama) + the AGENT line =
-  // the best venue each day (what the swarm captures by always chasing the top yield).
+  // Real protocol APY history + the AGENT best-venue-capture line. 7D/30D come from
+  // DefiLlama daily history; 1D from the swarm's own intraday decision feed. Refetches on
+  // range change.
   useEffect(() => {
     let dead = false
     const load = () =>
-      fetch("/api/talos/performance", { cache: "no-store" })
+      fetch(`/api/talos/performance?range=${range}`, { cache: "no-store" })
         .then((r) => r.json())
         .then((d) => !dead && Array.isArray(d?.points) && setPerf(d.points))
         .catch(() => {})
     load()
-    const id = setInterval(load, 300_000) // daily data — refresh every 5 min
+    const id = setInterval(load, range === "1d" ? 30_000 : 300_000)
     return () => {
       dead = true
       clearInterval(id)
     }
-  }, [])
+  }, [range])
 
   // Read the user's spendable USDC coins client-side so deposit needs only an amount.
   const loadWalletUsdc = useCallback(async () => {
@@ -375,22 +377,34 @@ export function VaultBento() {
     <div className="grid gap-4 lg:grid-cols-5">
       {/* ══ LEFT: performance line chart (hero) ══ */}
       <Cell
-        title="// 30-DAY PERFORMANCE — AGENT vs PROTOCOLS"
+        title="// PERFORMANCE — AGENT vs PROTOCOLS"
         className="lg:col-span-3"
         bodyClass="flex flex-col p-4"
       >
-        <p className="mb-3 text-[10px] uppercase tracking-widest text-muted-foreground">
-          real 30-day venue APY history · agent captures the best venue · now{" "}
-          <span className="text-accent">{holding}</span>
-        </p>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            agent captures the best venue · now <span className="text-accent">{holding}</span>
+          </p>
+          <div className="flex gap-1">
+            {(["1d", "7d", "30d"] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={`border px-2.5 py-1 text-[10px] uppercase tracking-widest transition-colors ${range === r ? "border-accent bg-accent/10 text-accent" : "border-border text-muted-foreground hover:text-foreground"}`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="h-[340px] w-full">
           {perf.length < 2 ? (
             <div className="flex h-full items-center justify-center text-center text-[10px] uppercase tracking-widest text-muted-foreground">
-              loading 30-day history…
+              loading {range} history…
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={perf} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+              <ComposedChart key={range} data={perf} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
                 <defs>
                   <linearGradient id="perfAgent" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={ACCENT} stopOpacity={0.28} />
@@ -411,6 +425,8 @@ export function VaultBento() {
                   tickFormatter={(v: number) => `${v.toFixed(1)}`}
                   width={40}
                   unit="%"
+                  domain={["dataMin - 0.5", "dataMax + 0.5"]}
+                  allowDecimals={false}
                 />
                 <Tooltip content={<PerfTip />} cursor={{ stroke: ACCENT, strokeOpacity: 0.3 }} />
                 <Legend
@@ -429,7 +445,7 @@ export function VaultBento() {
                   strokeWidth={1}
                   dot={false}
                   connectNulls
-                  isAnimationActive={false}
+                  isAnimationActive={true} animationDuration={550}
                 />
                 <Line
                   type="monotone"
@@ -439,7 +455,7 @@ export function VaultBento() {
                   strokeWidth={1}
                   dot={false}
                   connectNulls
-                  isAnimationActive={false}
+                  isAnimationActive={true} animationDuration={550}
                 />
                 <Line
                   type="monotone"
@@ -449,7 +465,7 @@ export function VaultBento() {
                   strokeWidth={1}
                   dot={false}
                   connectNulls
-                  isAnimationActive={false}
+                  isAnimationActive={true} animationDuration={550}
                 />
                 <Area
                   type="monotone"
@@ -461,7 +477,7 @@ export function VaultBento() {
                   dot={{ fill: ACCENT, r: 2 }}
                   activeDot={{ r: 4, fill: ACCENT, stroke: "transparent" }}
                   connectNulls
-                  isAnimationActive={false}
+                  isAnimationActive={true} animationDuration={550}
                 />
               </ComposedChart>
             </ResponsiveContainer>
