@@ -97,7 +97,7 @@ export function ThoughtStream() {
         </div>
       </div>
 
-      <div ref={scrollRef} className="max-h-[68vh] overflow-y-auto">
+      <div ref={scrollRef} className="max-h-[68vh] overflow-y-auto no-scrollbar">
         {cards.length === 0 && (
           <div className="px-6 py-16 text-center text-sm text-muted-foreground">
             NO DECISIONS YET — ICARUS LOGS A THOUGHT EVERY TICK.
@@ -206,7 +206,7 @@ function DecisionModal({ d, holding, onClose }: { d: Decision; holding: string |
           <span className="flex items-center gap-2 text-sm uppercase tracking-widest text-accent"><Database size={16} /> WALRUS MEMORY // DECISION #{d.n}</span>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
+        <div className="max-h-[70vh] overflow-y-auto no-scrollbar px-6 py-4">
           <Row k="action" v={<span className={d.action === "REBALANCE" ? "text-accent" : ""}>{d.action}</span>} />
           {d.action === "REBALANCE" && <Row k="move" v={`${d.amount} · ${d.from} → ${d.target}`} />}
           <Row k="decided by" v={d.by} />
