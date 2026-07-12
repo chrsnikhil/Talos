@@ -38,9 +38,30 @@ export function GuidedTour({
   // Latest step's expression — applied when the agent finishes mounting
   // (the dynamic import resolves after the first step effect runs).
   const exprRef = useRef<TourStep["expr"]>("happy")
+  // Pre-generated per-step voice (public/audio/tour/step-N.mp3). No live TTS.
+  const [muted, setMuted] = useState(false)
+  const [hasAudio, setHasAudio] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  // One <audio> element reused across steps. `hasAudio` flips true only once a
+  // clip actually loads, so the mute control is hidden until the pre-generated
+  // files exist — the tour deploys/works fine with no audio present.
+  useEffect(() => {
+    try {
+      setMuted(localStorage.getItem("talos_tour_muted") === "1")
+    } catch {}
+    const a = new Audio()
+    a.preload = "auto"
+    a.addEventListener("canplay", () => setHasAudio(true))
+    audioRef.current = a
+    return () => {
+      a.pause()
+      audioRef.current = null
+    }
   }, [])
 
   // Mount the REAL demo agent once (three.js loads client-side only via
@@ -69,6 +90,28 @@ export function GuidedTour({
     agentRef.current?.setExpression(step.expr)
     agentRef.current?.hop()
   }, [step])
+
+  // Play the current step's pre-generated voice line (autoplay can be blocked
+  // before a gesture — swallow it; audio kicks in from the first Continue click).
+  useEffect(() => {
+    const a = audioRef.current
+    if (!a) return
+    a.pause()
+    a.currentTime = 0
+    if (muted) return
+    a.src = `/audio/tour/step-${i}.mp3`
+    a.play().catch(() => {})
+  }, [i, muted])
+
+  const toggleMute = useCallback(() => {
+    setMuted((m) => {
+      const nm = !m
+      try {
+        localStorage.setItem("talos_tour_muted", nm ? "1" : "0")
+      } catch {}
+      return nm
+    })
+  }, [])
 
   const total = steps.length
   const isLast = i === total - 1
@@ -319,6 +362,52 @@ export function GuidedTour({
               borderRight: "13px solid #0d1319",
             }}
           />
+
+          {/* mute toggle — only shown once pre-generated voice clips are present */}
+          {hasAudio && (
+            <button
+              onClick={toggleMute}
+              aria-label={muted ? "Unmute narration" : "Mute narration"}
+              style={{
+                position: "absolute",
+                top: 12,
+                right: 14,
+                width: 26,
+                height: 26,
+                display: "grid",
+                placeItems: "center",
+                color: "#8b98ab",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                pointerEvents: "auto",
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M11 5 6 9H2v6h4l5 4V5z" />
+                {muted ? (
+                  <>
+                    <line x1="23" y1="9" x2="17" y2="15" />
+                    <line x1="17" y1="9" x2="23" y2="15" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                    <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+                  </>
+                )}
+              </svg>
+            </button>
+          )}
 
           {/* title + body — keyed so they softly fade/slide in per step */}
           <div key={i} style={{ animation: "tourTextIn 240ms ease-out" }}>
