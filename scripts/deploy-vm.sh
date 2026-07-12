@@ -11,8 +11,8 @@
 #
 set -euo pipefail
 
-VM="azureuser@20.219.0.224"
-FQDN="talos-swarm-d8b4e2.centralindia.cloudapp.azure.com"
+VM="azureuser@20.219.20.139"
+FQDN="talos-swarm-b0f6db.centralindia.cloudapp.azure.com"
 # Public app origin used for APP_URL (OAuth issuer/redirect, MCP metadata). Defaults to
 # the Azure hostname; after the custom-domain cutover (scripts/flip-domain.sh) run deploys
 # with TALOS_APP_DOMAIN=talosfi.xyz so APP_URL is not reverted to the Azure host.

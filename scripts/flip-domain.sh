@@ -17,8 +17,8 @@
 set -euo pipefail
 
 DOMAIN="${1:-talosfi.xyz}"
-VM="azureuser@20.219.0.224"
-VM_IP="20.219.0.224"
+VM="azureuser@20.219.20.139"
+VM_IP="20.219.20.139"
 
 echo "==> Cutover target: https://$DOMAIN  (proxy -> localhost:3000)"
 
