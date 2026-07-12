@@ -1,17 +1,23 @@
 "use client"
 
-import { useCallback, useEffect, useState, type CSSProperties } from "react"
-import { TourBot } from "./tour-bot"
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
 import type { TourStep } from "./tour-steps"
+import type { TalosAgentHandle } from "./talos-agent"
 
 // z above drei <Html> nameplates from the workshop scene (default ~16.7M) so
 // they don't bleed through the backdrop onto the tour.
 const Z = 16_777_300
 const PAD = 8
-const CARD_W = 360
-const CARD_H = 340
 const EASE = "cubic-bezier(0.22,1,0.36,1)"
 const DIM = "rgba(13,19,25,0.72)"
+
+// The traveling guide unit: agent canvas (left) + speech bubble (right).
+const AGENT_W = 200
+const AGENT_H = 240
+const GAP = 12
+const BUBBLE_W = 340
+const UNIT_W = AGENT_W + GAP + BUBBLE_W // ≈552
+const UNIT_H = 250
 
 export function GuidedTour({
   steps,
@@ -25,10 +31,32 @@ export function GuidedTour({
   const [i, setI] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
   const [mounted, setMounted] = useState(false)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const agentRef = useRef<TalosAgentHandle | null>(null)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Mount the REAL demo agent once (three.js loads client-side only via
+  // dynamic import); hop on step change; fully dispose on unmount.
+  useEffect(() => {
+    if (!mounted) return // canvas only renders past the mounted gate
+    let cancelled = false
+    import("./talos-agent").then((m) => {
+      if (cancelled || !canvasRef.current || agentRef.current) return
+      agentRef.current = m.createTalosAgent(canvasRef.current)
+    })
+    return () => {
+      cancelled = true
+      agentRef.current?.dispose()
+      agentRef.current = null
+    }
+  }, [mounted])
+
+  useEffect(() => {
+    agentRef.current?.hop()
+  }, [i])
 
   const step = steps[i]
   const total = steps.length
@@ -82,7 +110,7 @@ export function GuidedTour({
         attempts++
         timer = setTimeout(locate, 120)
       } else {
-        setRect(null) // fall back to centered dialog, no spotlight
+        setRect(null) // fall back to centered guide, no spotlight
       }
     }
     locate()
@@ -113,32 +141,20 @@ export function GuidedTour({
   const holeW = rect ? rect.width + PAD * 2 : 0
   const holeH = rect ? rect.height + PAD * 2 : 0
 
-  // ── dialog position ──
-  let cardStyle: CSSProperties
-  let side: "right" | "left" | "below" | null = null
+  // ── guide-unit position: adjacent to the spotlight, below-first ──
+  // (window reads are safe: we're past the mounted gate, client-only.)
+  let unitStyle: CSSProperties
   if (rect) {
     const vw = window.innerWidth
     const vh = window.innerHeight
-    let left: number
-    let top: number
-    if (vw - rect.right - 20 >= CARD_W + 20) {
-      side = "right"
-      left = rect.right + 20
-      top = rect.top + rect.height / 2 - CARD_H / 2
-    } else if (rect.left - (CARD_W + 20) >= 0) {
-      side = "left"
-      left = rect.left - (CARD_W + 20)
-      top = rect.top + rect.height / 2 - CARD_H / 2
-    } else {
-      side = "below"
-      top = rect.bottom + 16
-      left = rect.left + rect.width / 2 - CARD_W / 2
-    }
-    left = Math.min(Math.max(16, left), Math.max(16, vw - CARD_W - 16))
-    top = Math.min(Math.max(16, top), Math.max(16, vh - CARD_H - 16))
-    cardStyle = { left, top }
+    let top = rect.bottom + 20
+    if (top + UNIT_H > vh - 16) top = rect.top - UNIT_H - 20
+    let left = rect.left + rect.width / 2 - UNIT_W / 2
+    left = Math.min(Math.max(16, left), Math.max(16, vw - UNIT_W - 16))
+    top = Math.min(Math.max(16, top), Math.max(16, vh - UNIT_H - 16))
+    unitStyle = { left, top }
   } else {
-    cardStyle = { left: "50%", top: "50%", transform: "translate(-50%,-50%)" }
+    unitStyle = { left: "50%", top: "50%", transform: "translate(-50%,-50%)" }
   }
 
   const panel: CSSProperties = {
@@ -193,57 +209,86 @@ export function GuidedTour({
         )}
       </div>
 
-      {/* ── traveling dialog ── */}
+      {/* ── traveling guide unit: agent + speech bubble glide together ── */}
       <div
-        className="fixed"
+        className="fixed flex items-center"
         style={{
-          ...cardStyle,
-          width: CARD_W,
+          ...unitStyle,
+          width: UNIT_W,
+          height: UNIT_H,
           zIndex: Z + 1,
-          transition: `left 300ms ${EASE}, top 300ms ${EASE}`,
+          pointerEvents: "none",
+          transition: `left 320ms ${EASE}, top 320ms ${EASE}`,
         }}
       >
-        {/* pointer toward the target */}
-        {side && (
+        {/* the REAL demo agent, transparent canvas — never blocks the page */}
+        <canvas
+          ref={canvasRef}
+          style={{
+            width: AGENT_W,
+            height: AGENT_H,
+            flex: `0 0 ${AGENT_W}px`,
+            pointerEvents: "none",
+            display: "block",
+          }}
+        />
+
+        {/* speech bubble — tail points left at the agent's head */}
+        <div
+          style={{
+            position: "relative",
+            marginLeft: GAP,
+            maxWidth: BUBBLE_W,
+            background: "#0d1319",
+            border: "1.5px solid rgba(59,158,255,0.35)",
+            boxShadow: "4px 4px 0 0 #3b9eff",
+            borderRadius: 14,
+            padding: "18px 20px",
+            pointerEvents: "auto",
+          }}
+        >
+          {/* tail (outer = border color, inner = bubble bg) */}
           <div
             style={{
               position: "absolute",
-              width: 10,
-              height: 10,
-              background: side === "below" ? "#080e16" : "#0d1319",
-              border: "1px solid rgba(59,158,255,0.25)",
-              transform: "rotate(45deg)",
-              ...(side === "right" ? { left: -5, top: "50%", marginTop: -5 } : {}),
-              ...(side === "left" ? { right: -5, top: "50%", marginTop: -5 } : {}),
-              ...(side === "below" ? { top: -5, left: "50%", marginLeft: -5 } : {}),
+              left: -13,
+              top: 44,
+              width: 0,
+              height: 0,
+              borderTop: "11px solid transparent",
+              borderBottom: "11px solid transparent",
+              borderRight: "13px solid rgba(59,158,255,0.35)",
             }}
           />
-        )}
+          <div
+            style={{
+              position: "absolute",
+              left: -10,
+              top: 46,
+              width: 0,
+              height: 0,
+              borderTop: "9px solid transparent",
+              borderBottom: "9px solid transparent",
+              borderRight: "11px solid #0d1319",
+            }}
+          />
 
-        {/* 3D bot */}
-        <div
-          style={{
-            height: 150,
-            background: "#080e16",
-            border: "1px solid rgba(59,158,255,0.25)",
-            borderBottom: "1px solid rgba(59,158,255,0.18)",
-            position: "relative",
-          }}
-        >
-          <TourBot />
-        </div>
+          {/* title */}
+          <div
+            className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.15em]"
+            style={{ color: "#3b9eff" }}
+          >
+            {step.title}
+          </div>
 
-        {/* body */}
-        <div
-          style={{
-            background: "#0d1319",
-            border: "1px solid rgba(59,158,255,0.25)",
-            borderTop: "none",
-            boxShadow: "4px 4px 0 0 #3b9eff",
-            padding: "18px 22px",
-            position: "relative",
-          }}
-        >
+          {/* body copy */}
+          <p
+            className="mb-4 font-mono text-sm leading-relaxed"
+            style={{ color: "#e8edf2", minHeight: 52 }}
+          >
+            {step.body}
+          </p>
+
           {/* step progress */}
           <div className="mb-3 flex items-center gap-1.5">
             {steps.map((_, d) => (
@@ -266,22 +311,6 @@ export function GuidedTour({
             </span>
           </div>
 
-          {/* title */}
-          <div
-            className="mb-2 font-mono text-sm font-bold uppercase tracking-[0.12em]"
-            style={{ color: "#3b9eff" }}
-          >
-            {step.title}
-          </div>
-
-          {/* body text */}
-          <p
-            className="mb-5 font-mono text-sm leading-relaxed"
-            style={{ color: "#e8edf2", minHeight: 60 }}
-          >
-            {step.body}
-          </p>
-
           {/* nav */}
           <div className="flex items-center justify-between gap-3">
             <button
@@ -289,10 +318,11 @@ export function GuidedTour({
               disabled={i === 0}
               className="text-[10px] font-mono tracking-[0.2em] uppercase px-4 py-2 border transition-colors"
               style={{
-                borderColor: i === 0 ? "#1e2d3d" : "#3b9eff",
-                color: i === 0 ? "#3a4450" : "#3b9eff",
+                visibility: i === 0 ? "hidden" : "visible",
+                borderColor: "#3b9eff",
+                color: "#3b9eff",
                 background: "transparent",
-                cursor: i === 0 ? "default" : "pointer",
+                cursor: "pointer",
               }}
             >
               ← Back
@@ -317,7 +347,7 @@ export function GuidedTour({
                 boxShadow: "2px 2px 0 0 #1a8a5e",
               }}
             >
-              {isLast ? "Finish" : "Next →"}
+              {isLast ? "Let's go 🚀" : "Continue →"}
             </button>
           </div>
         </div>
