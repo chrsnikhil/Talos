@@ -74,6 +74,37 @@ export function GuidedTour({
   const ctxRef = useRef<AudioContext | null>(null)
   const buffersRef = useRef<(AudioBuffer | null)[]>([])
   const srcRef = useRef<AudioBufferSourceNode | null>(null)
+  // Live values for async decode callbacks + the onended handler.
+  const iRef = useRef(0)
+  const mutedRef = useRef(false)
+  const playRef = useRef<(n: number) => void>(() => {})
+  iRef.current = i
+  mutedRef.current = muted
+  // Play step n's clip. When it ENDS NATURALLY, auto-advance so the narration is
+  // never cut off — the tour paces itself to the voice. Manual Back/Continue
+  // override at any time (they supersede srcRef so onended won't double-advance).
+  playRef.current = (n: number) => {
+    const ctx = ctxRef.current
+    if (!ctx) return
+    try {
+      srcRef.current?.stop()
+    } catch {}
+    srcRef.current = null
+    if (mutedRef.current) return
+    const buf = buffersRef.current[n]
+    if (!buf) return // not decoded yet — the decode callback will start it
+    if (ctx.state === "suspended") ctx.resume().catch(() => {})
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.connect(ctx.destination)
+    src.onended = () => {
+      if (srcRef.current !== src) return // superseded by manual nav → don't advance
+      srcRef.current = null
+      setI((p) => (p < steps.length - 1 ? p + 1 : p))
+    }
+    src.start()
+    srcRef.current = src
+  }
 
   useEffect(() => {
     setMounted(true)
@@ -103,6 +134,9 @@ export function GuidedTour({
           if (cancelled) return
           buffersRef.current[n] = audio
           if (n === 0) setHasAudio(true)
+          // If this clip is the step we're already on and nothing is playing,
+          // start it now (fixes the race where step 0 decodes after we land).
+          if (n === iRef.current && !srcRef.current && !mutedRef.current) playRef.current(n)
         })
         .catch(() => {})
     })
@@ -144,24 +178,10 @@ export function GuidedTour({
     agentRef.current?.hop()
   }, [step])
 
-  // Play the current step's pre-generated voice line (autoplay can be blocked
-  // before a gesture — swallow it; audio kicks in from the first Continue click).
+  // Play the current step's voice line on step / mute change (autoplay can be
+  // blocked before a gesture — swallow it; audio kicks in from the first click).
   useEffect(() => {
-    const ctx = ctxRef.current
-    if (!ctx) return
-    try {
-      srcRef.current?.stop()
-    } catch {}
-    srcRef.current = null
-    if (muted) return
-    const buf = buffersRef.current[i]
-    if (!buf) return
-    if (ctx.state === "suspended") ctx.resume().catch(() => {})
-    const src = ctx.createBufferSource()
-    src.buffer = buf
-    src.connect(ctx.destination)
-    src.start()
-    srcRef.current = src
+    playRef.current(i)
   }, [i, muted])
 
   const toggleMute = useCallback(() => {
