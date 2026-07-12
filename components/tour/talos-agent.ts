@@ -128,6 +128,16 @@ function softShadow(
   return m
 }
 
+/* mouth shapes + named expressions */
+type MouthShape = "smile" | "grin" | "open" | "flat" | "tiny"
+export type ExpressionName =
+  | "happy"
+  | "excited"
+  | "thinking"
+  | "alert"
+  | "proud"
+  | "celebrate"
+
 /* per-frame cues (set code writes, update consumes+decays) */
 type Cue = {
   y: number
@@ -155,12 +165,19 @@ class Bot {
   tip: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>
   tipGlow: THREE.Sprite
   shadow: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+  mouth: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+  mouthTex: THREE.CanvasTexture
+  private mouthCtx: CanvasRenderingContext2D
+  private mouthShape: MouthShape | null = null
   baseScale: number
   tx = 0
   tz = 0
   prevX = 0
   prevZ = 0
-  springHead = Math.PI
+  // Resting yaw ≈ 0 faces the camera (+Z side holds the visor/eyes/core; the
+  // camera sits on +Z). +0.22 rad adds a slight turn toward screen-center so a
+  // bottom-left-parked agent reads as peeking around the corner.
+  springHead = 0.22
   headV = 0
   gait = 0
   sSpeed = 0
@@ -238,6 +255,24 @@ class Bot {
       eg.position.set(ex, 0, 0.03)
       this.eyeG.add(eg)
     })
+    /* mouth — canvas-textured plane on the visor, redrawn per expression
+       (same pattern as the demo's board(): <canvas> → CanvasTexture → redraw) */
+    const mCv = document.createElement("canvas")
+    mCv.width = 128
+    mCv.height = 64
+    this.mouthCtx = mCv.getContext("2d")!
+    this.mouthTex = new THREE.CanvasTexture(mCv)
+    this.mouth = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.22, 0.12),
+      new THREE.MeshBasicMaterial({
+        map: this.mouthTex,
+        transparent: true,
+        depthWrite: false,
+      }),
+    )
+    this.mouth.position.set(0, 0.52, 0.272)
+    torso.add(this.mouth)
+    this.setMouth("smile")
     /* antenna — collar, mast, lit tip */
     obox(torso, 0.1, 0.035, 0.1, shade(color, 0.86), 0, 1.0, 0, 0, false)
     obox(torso, 0.05, 0.22, 0.05, EYE, 0, 1.06, 0, 0, false)
@@ -268,6 +303,44 @@ class Bot {
   setPos(x: number, z: number) {
     this.tx = x
     this.tz = z
+  }
+
+  /* redraw the mouth canvas for a shape (no-op if unchanged) */
+  setMouth(shape: MouthShape) {
+    if (shape === this.mouthShape) return
+    this.mouthShape = shape
+    const x = this.mouthCtx
+    x.clearRect(0, 0, 128, 64)
+    x.strokeStyle = "#f2f7ff"
+    x.fillStyle = "#f2f7ff"
+    x.lineWidth = 9
+    x.lineCap = "round"
+    x.beginPath()
+    if (shape === "smile") {
+      // upward arc — corners up, middle down (canvas y grows downward)
+      x.arc(64, 4, 34, 0.28 * Math.PI, 0.72 * Math.PI)
+      x.stroke()
+    } else if (shape === "grin") {
+      // bigger arc, closed + filled = slightly open grin
+      x.arc(64, 0, 42, 0.24 * Math.PI, 0.76 * Math.PI)
+      x.closePath()
+      x.fill()
+      x.stroke()
+    } else if (shape === "open") {
+      // small filled "o" — surprised
+      x.ellipse(64, 30, 13, 17, 0, 0, Math.PI * 2)
+      x.fill()
+    } else if (shape === "flat") {
+      x.moveTo(46, 30)
+      x.lineTo(82, 30)
+      x.stroke()
+    } else {
+      // tiny — short pondering line
+      x.moveTo(58, 32)
+      x.lineTo(69, 32)
+      x.stroke()
+    }
+    this.mouthTex.needsUpdate = true
   }
 
   update(t: number, dt: number) {
@@ -359,6 +432,7 @@ class Bot {
 /* ───────────────────────────── public factory ────────────────────────────── */
 export type TalosAgentHandle = {
   hop: () => void
+  setExpression: (name: ExpressionName) => void
   dispose: () => void
 }
 
@@ -371,10 +445,12 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
   // Transparent scene — no background, no fog; the page shows through.
   const scene = new THREE.Scene()
 
-  // Framed head-to-toe: the bot is ~1.9 units tall (scale 1.7), feet at y≈0.
+  // Framed for the corner "peeking" pose: moderately close on the upper body
+  // so the face (eyes/visor at world y≈1.12) sits just above canvas-center and
+  // expressions read clearly; ears/antenna still clear the frame edges.
   const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 50)
-  camera.position.set(0, 1.1, 4.6)
-  camera.lookAt(0, 1.0, 0)
+  camera.position.set(0, 1.35, 4.0)
+  camera.lookAt(0, 1.02, 0)
 
   /* lights — warm key, cool hemi, blue rim (Talos studio look) */
   scene.add(new THREE.AmbientLight(0xf4f0e8, 0.4))
@@ -408,6 +484,81 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
   const HOP_DUR = 0.55
   let hopT = -1 // remaining time; <0 = inactive
 
+  /* ── expression system — layers on TOP of the base idle (blink, ear sway,
+     breath, pulses all stay). Cues are written every frame before update();
+     eye/core tweaks that update() would overwrite are applied after it. ── */
+  let expr: ExpressionName = "happy"
+
+  const applyExpressionCues = (t: number) => {
+    const c = bot.cue
+    switch (expr) {
+      case "happy": // calm friendly default — gentle extra bob
+        bot.setMouth("smile")
+        c.y += 0.012 * Math.sin(t * 2.3)
+        break
+      case "excited": // "feed me!" — grin, antenna flare, eager bouncing
+        bot.setMouth("grin")
+        c.excite = Math.max(c.excite, 0.95)
+        c.y += 0.05 * Math.abs(Math.sin(t * 4.6))
+        c.earL += 0.14
+        c.earR -= 0.14
+        break
+      case "thinking": // pondering — tiny mouth, head dipped, ears cocked
+        bot.setMouth("tiny")
+        c.lean += 0.06
+        c.earL += 0.09
+        c.earR += 0.03
+        break
+      case "alert": // attentive/serious — stiffen back, antenna flicker
+        bot.setMouth("open")
+        c.lean -= 0.09
+        c.excite = Math.max(c.excite, 0.35 + 0.65 * Math.abs(Math.sin(t * 8.5)))
+        break
+      case "proud": // confident — chin up, steady antenna glow
+        bot.setMouth("smile")
+        c.lean -= 0.07
+        c.excite = Math.max(c.excite, 0.25)
+        break
+      case "celebrate": // outro — repeated hops, antenna flare, waggling ears
+        bot.setMouth("grin")
+        c.excite = Math.max(c.excite, 1)
+        c.y += 0.16 * Math.abs(Math.sin(t * 4.2))
+        c.earL += 0.1 * Math.sin(t * 6)
+        c.earR -= 0.1 * Math.sin(t * 6)
+        break
+    }
+  }
+
+  const applyExpressionFace = () => {
+    // update() just wrote eyeG.scale.y from blink×cue — multiply so the blink
+    // still fully closes the eyes; scale.x / position.y aren't touched by it.
+    const eg = bot.eyeG
+    let sx = 1
+    let syMul = 1
+    let ey = 0
+    if (expr === "excited") {
+      sx = 1.15
+      syMul = 1.1 // slightly wide
+    } else if (expr === "thinking") {
+      syMul = 0.78 // squint
+      ey = 0.02 // eyes drift up — pondering
+    } else if (expr === "alert") {
+      sx = 1.3
+      syMul = 1.3 // WIDE and round
+    } else if (expr === "celebrate") {
+      syMul = 0.55 // happy squint
+      ey = 0.015
+    }
+    eg.scale.x = sx
+    eg.scale.y *= syMul
+    eg.position.y = ey
+    if (expr === "proud") {
+      // chest core brighter (update() sets base opacity every frame)
+      bot.core.material.opacity = Math.min(1, bot.core.material.opacity + 0.18)
+      bot.coreGlow.material.opacity = Math.min(1, bot.coreGlow.material.opacity + 0.14)
+    }
+  }
+
   let raf = 0
   let disposed = false
   let last: number | null = null
@@ -425,7 +576,9 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
       bot.cue.excite = 1 - p
       hopT -= dt
     }
+    applyExpressionCues(elapsed)
     bot.update(elapsed, dt)
+    applyExpressionFace()
     renderer.render(scene, camera)
     raf = requestAnimationFrame(loop)
   }
@@ -435,11 +588,16 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
     hop() {
       if (!disposed) hopT = HOP_DUR
     },
+    setExpression(name: ExpressionName) {
+      expr = name
+    },
     dispose() {
       if (disposed) return
       disposed = true
       cancelAnimationFrame(raf)
       ro.disconnect()
+      // The traverse below reaches the mouth too (it's a torso child): its
+      // PlaneGeometry, MeshBasicMaterial and CanvasTexture map all get disposed.
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh
         if (mesh.geometry) mesh.geometry.dispose()
