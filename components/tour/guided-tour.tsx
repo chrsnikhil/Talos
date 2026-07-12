@@ -179,8 +179,10 @@ export function GuidedTour({
       if (cancelled) return
       const specific = qSpecific()
       if (specific) {
-        // Locked onto the real control.
-        specific.scrollIntoView({ block: "center", behavior: "smooth" })
+        // Locked onto the real control. Scroll INSTANTLY (not smooth): a smooth
+        // scroll fires a scroll event every frame → a re-measure/re-render storm
+        // that re-targets the unit's glide each frame and makes it stutter.
+        specific.scrollIntoView({ block: "center", behavior: "auto" })
         setRect(specific.getBoundingClientRect())
         return
       }
@@ -197,19 +199,25 @@ export function GuidedTour({
     }
     locate()
 
-    // Keep the spotlight glued to whatever we're focusing while the page
-    // scrolls/resizes (tracks the smooth scrollIntoView animation too).
+    // Keep the spotlight glued to the target on manual scroll/resize, coalesced
+    // to one measure per frame so it can't flood re-renders.
+    let raf = 0
     const remeasure = () => {
-      if (cancelled) return
-      const el = qSpecific() || qFallback()
-      if (el) setRect(el.getBoundingClientRect())
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        if (cancelled) return
+        const el = qSpecific() || qFallback()
+        if (el) setRect(el.getBoundingClientRect())
+      })
     }
-    window.addEventListener("scroll", remeasure, true)
+    window.addEventListener("scroll", remeasure, { passive: true, capture: true })
     window.addEventListener("resize", remeasure)
 
     return () => {
       cancelled = true
       if (timer) clearTimeout(timer)
+      if (raf) cancelAnimationFrame(raf)
       window.removeEventListener("scroll", remeasure, true)
       window.removeEventListener("resize", remeasure)
     }
