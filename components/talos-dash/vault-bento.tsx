@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
 import { SuiClient, getFullnodeUrl } from "@mysten/sui/client"
 import {
   Area,
@@ -45,14 +45,16 @@ function Cell({
   children,
   className = "",
   bodyClass = "p-5",
+  style,
 }: {
   title?: string
   children: React.ReactNode
   className?: string
   bodyClass?: string
+  style?: CSSProperties
 }) {
   return (
-    <div className={`border-2 border-border ${className}`}>
+    <div className={`border-2 border-border ${className}`} style={style}>
       {title && (
         <div className="border-b-2 border-border px-4 py-2 text-[10px] uppercase tracking-widest text-muted-foreground">
           {title}
@@ -158,6 +160,31 @@ export function VaultBento() {
   const [perf, setPerf] = useState<PerfPoint[]>([])
   const [range, setRange] = useState<"1d" | "7d" | "30d">("30d")
   const [walletUsdc, setWalletUsdc] = useState<{ total: number; coinId: string | null }>({ total: 0, coinId: null })
+
+  // Match the chart card's height to the right control column so both end at the
+  // same point. We measure the (content-driven) right column and pin the left card
+  // to that exact px height — a fixed px means the chart can flex-fill it without
+  // recharts' infinite-growth loop (which only bites on % heights of unbounded parents).
+  const [rightH, setRightH] = useState(0)
+  const [isLg, setIsLg] = useState(false)
+  const roRef = useRef<ResizeObserver | null>(null)
+  const measureRight = useCallback((node: HTMLDivElement | null) => {
+    roRef.current?.disconnect()
+    roRef.current = null
+    if (!node) return
+    const update = () => setRightH(node.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(node)
+    roRef.current = ro
+  }, [])
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)")
+    const sync = () => setIsLg(mq.matches)
+    sync()
+    mq.addEventListener("change", sync)
+    return () => mq.removeEventListener("change", sync)
+  }, [])
 
   // Deposit / withdraw form state
   const [depositAmt, setDepositAmt] = useState("")
@@ -378,8 +405,9 @@ export function VaultBento() {
       {/* ══ LEFT: performance line chart (hero) ══ */}
       <Cell
         title="// PERFORMANCE — AGENT vs PROTOCOLS"
-        className="lg:col-span-3 self-start"
-        bodyClass="flex flex-col p-4"
+        className="lg:col-span-3"
+        bodyClass="flex h-full flex-col p-4"
+        style={isLg && rightH ? { height: rightH } : undefined}
       >
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -397,7 +425,7 @@ export function VaultBento() {
             ))}
           </div>
         </div>
-        <div className="h-[440px] w-full">
+        <div className="min-h-[440px] w-full flex-1">
           {perf.length < 2 ? (
             <div className="flex h-full items-center justify-center text-center text-[10px] uppercase tracking-widest text-muted-foreground">
               loading {range} history…
@@ -486,7 +514,7 @@ export function VaultBento() {
       </Cell>
 
       {/* ══ RIGHT: compact control stack ══ */}
-      <div className="flex flex-col gap-3 lg:col-span-2">
+      <div ref={measureRight} className="flex flex-col gap-3 lg:col-span-2">
         {/* Balance */}
         <Cell title="// VAULT BALANCE" bodyClass="p-4">
           <div className="flex items-end justify-between">
