@@ -287,6 +287,34 @@ class Bot {
     this.tipGlow.position.copy(this.tip.position)
     torso.add(this.tipGlow)
 
+    /* ── lab coat — an open white coat over the lower torso (kept below the
+       visor so the face stays clear), with a breast pocket + a little green pen.
+       The green chest core still shows in the gap between the panels. ── */
+    const COAT = 0xeceff5
+    obox(torso, 0.46, 0.4, 0.56, COAT, -0.26, 0.3, 0, 0, true, OUTLINE, 0.05) // left panel
+    obox(torso, 0.46, 0.4, 0.56, COAT, 0.26, 0.3, 0, 0, true, OUTLINE, 0.05) // right panel
+    obox(torso, 0.98, 0.07, 0.58, COAT, 0, 0.47, 0, 0, true, OUTLINE, 0.04) // collar trim
+    obox(torso, 0.15, 0.12, 0.02, COAT, 0.28, 0.28, 0.285, 0, true, OUTLINE, 0.03) // pocket
+    obox(torso, 0.02, 0.1, 0.02, GREEN, 0.24, 0.33, 0.31, 0, false) // green pen in the pocket
+
+    /* ── pointer stick — a presenter's pointer raised toward the content it's
+       explaining (up + toward the speech bubble on its left/world −x side); dark
+       rod with a glowing green tip that matches the antenna. ── */
+    const ptr = new THREE.Group()
+    ptr.position.set(-0.34, 0.34, 0.34)
+    ptr.rotation.z = 0.5
+    obox(ptr, 0.045, 0.8, 0.045, 0x171310, 0, 0.4, 0, 0, true, OUTLINE, 0.03) // shaft
+    const ptrTip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.085, 0.085, 0.085),
+      new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.95 }),
+    )
+    ptrTip.position.set(0, 0.84, 0)
+    ptr.add(ptrTip)
+    const ptrGlow = glowSprite(GREEN, 0.4, 0.5)
+    ptrGlow.position.set(0, 0.84, 0)
+    ptr.add(ptrGlow)
+    torso.add(ptr)
+
     this.torso = torso
     this.g = g
     this.baseScale = scale
@@ -446,11 +474,11 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
   // Transparent scene — no background, no fog; the page shows through.
   const scene = new THREE.Scene()
 
-  // Framed to fit the WHOLE agent (head-to-toe, ears included) with margin so
-  // nothing is clipped by the canvas edges, while still reading large.
+  // Framed to fit the WHOLE agent (head-to-toe, ears + raised pointer included)
+  // with generous margin so nothing is clipped by the canvas edges.
   const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 50)
-  camera.position.set(0, 1.1, 4.2)
-  camera.lookAt(0, 0.95, 0)
+  camera.position.set(0, 1.15, 4.8)
+  camera.lookAt(0, 0.9, 0)
 
   /* lights — warm key, cool hemi, blue rim (Talos studio look) */
   scene.add(new THREE.AmbientLight(0xf4f0e8, 0.4))
