@@ -11,16 +11,14 @@ const PAD = 8
 const EASE = "cubic-bezier(0.22,1,0.36,1)"
 const DIM = "rgba(13,19,25,0.72)"
 
-// Corner guide (Duolingo-style): the agent is parked in the bottom-left,
-// peeking into the viewport; only the speech bubble text + spotlight change
-// per step. Slightly negative offsets clip the agent into the corner.
-const AGENT_W = 260
-const AGENT_H = 300
-const AGENT_LEFT = -18
-const AGENT_BOTTOM = -28
-const BUBBLE_W = 340
-const BUBBLE_LEFT = 220
-const BUBBLE_BOTTOM = 210
+// Traveling guide unit: the agent + speech bubble glide together to sit beside
+// whatever section is spotlighted (the agent "walks over" to what it explains).
+const AGENT_W = 240
+const AGENT_H = 280
+const GAP = 8
+const BUBBLE_W = 330
+const UNIT_W = AGENT_W + GAP + BUBBLE_W
+const UNIT_H = 290
 
 export function GuidedTour({
   steps,
@@ -70,6 +68,7 @@ export function GuidedTour({
     agentRef.current?.setExpression(step.expr)
     agentRef.current?.hop()
   }, [step])
+
   const total = steps.length
   const isLast = i === total - 1
 
@@ -93,7 +92,11 @@ export function GuidedTour({
     return () => window.removeEventListener("keydown", handler)
   }, [next, prev, onDone])
 
-  // Locate + track the current step's target element.
+  // Locate + track the step's target. Robustness: a specific control (e.g.
+  // vault-deposit) may not be mounted yet when we switch tabs — the vault loads
+  // async. So while we wait, we focus the tab's whole container (data-tour=
+  // "tab-<tab>") so the section is highlighted instead of blurring EVERYTHING,
+  // then upgrade to the exact control as soon as it appears.
   useEffect(() => {
     if (!step) return
     if (step.tab) setTab(step.tab)
@@ -107,30 +110,40 @@ export function GuidedTour({
     let timer: ReturnType<typeof setTimeout> | null = null
     let attempts = 0
 
-    const query = () =>
+    const tabKey = step.tab ? step.tab.toLowerCase().replace(/[^a-z]/g, "") : null
+    const fallbackSel = tabKey ? `[data-tour="tab-${tabKey}"]` : null
+    const qSpecific = () =>
       document.querySelector(`[data-tour="${step.target}"]`) as HTMLElement | null
+    const qFallback = () =>
+      fallbackSel ? (document.querySelector(fallbackSel) as HTMLElement | null) : null
 
-    // Target may not be mounted yet right after a tab switch — retry briefly.
     const locate = () => {
       if (cancelled) return
-      const el = query()
-      if (el) {
-        el.scrollIntoView({ block: "center", behavior: "smooth" })
-        setRect(el.getBoundingClientRect())
-      } else if (attempts < 10) {
+      const specific = qSpecific()
+      if (specific) {
+        // Locked onto the real control.
+        specific.scrollIntoView({ block: "center", behavior: "smooth" })
+        setRect(specific.getBoundingClientRect())
+        return
+      }
+      // Not ready — spotlight the tab container meanwhile so the section is
+      // focused (not blurred), and keep polling for the exact control.
+      const fb = qFallback()
+      if (fb) setRect(fb.getBoundingClientRect())
+      if (attempts < 24) {
         attempts++
-        timer = setTimeout(locate, 120)
-      } else {
-        setRect(null) // fall back to full-screen blur, no spotlight
+        timer = setTimeout(locate, 150)
+      } else if (!fb) {
+        setRect(null) // truly nothing to focus → full blur fallback
       }
     }
     locate()
 
-    // Keep the spotlight glued to the target while the page scrolls/resizes
-    // (also tracks the smooth scrollIntoView animation).
+    // Keep the spotlight glued to whatever we're focusing while the page
+    // scrolls/resizes (tracks the smooth scrollIntoView animation too).
     const remeasure = () => {
       if (cancelled) return
-      const el = query()
+      const el = qSpecific() || qFallback()
       if (el) setRect(el.getBoundingClientRect())
     }
     window.addEventListener("scroll", remeasure, true)
@@ -151,6 +164,21 @@ export function GuidedTour({
   const holeT = rect ? Math.max(0, rect.top - PAD) : 0
   const holeW = rect ? rect.width + PAD * 2 : 0
   const holeH = rect ? rect.height + PAD * 2 : 0
+
+  // ── traveling unit position: beside the spotlight (below-first), clamped ──
+  let unitStyle: CSSProperties
+  if (rect) {
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    let top = rect.bottom + 20
+    if (top + UNIT_H > vh - 16) top = rect.top - UNIT_H - 20
+    let left = rect.left + rect.width / 2 - UNIT_W / 2
+    left = Math.min(Math.max(16, left), Math.max(16, vw - UNIT_W - 16))
+    top = Math.min(Math.max(16, top), Math.max(16, vh - UNIT_H - 16))
+    unitStyle = { left, top }
+  } else {
+    unitStyle = { left: "50%", top: "50%", transform: "translate(-50%,-50%)" }
+  }
 
   const panel: CSSProperties = {
     position: "absolute",
@@ -207,141 +235,149 @@ export function GuidedTour({
       {/* text fade-in on step change */}
       <style>{`@keyframes tourTextIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }`}</style>
 
-      {/* ── corner agent: parked bottom-left, peeking into the viewport ── */}
-      <canvas
-        ref={canvasRef}
-        className="fixed"
+      {/* ── traveling unit: agent (left) + speech bubble (right) glide together ── */}
+      <div
+        className="fixed flex items-center"
         style={{
-          left: AGENT_LEFT,
-          bottom: AGENT_BOTTOM,
-          width: AGENT_W,
-          height: AGENT_H,
+          ...unitStyle,
+          width: UNIT_W,
+          height: UNIT_H,
           zIndex: Z + 1,
           pointerEvents: "none",
-          display: "block",
-        }}
-      />
-
-      {/* ── speech bubble: fixed up-and-right of the agent, tail pointing
-             down-left at its head; only the text changes per step ── */}
-      <div
-        className="fixed"
-        style={{
-          left: BUBBLE_LEFT,
-          bottom: BUBBLE_BOTTOM,
-          maxWidth: BUBBLE_W,
-          background: "#0d1319",
-          border: "1.5px solid rgba(59,158,255,0.35)",
-          boxShadow: "4px 4px 0 0 #3b9eff",
-          borderRadius: 14,
-          padding: "18px 20px",
-          zIndex: Z + 1,
-          pointerEvents: "auto",
+          transition: `left 340ms ${EASE}, top 340ms ${EASE}`,
         }}
       >
-        {/* tail (outer = border color, inner = bubble bg) — down-left at the agent */}
-        <div
+        {/* the REAL demo agent, transparent canvas — never blocks the page */}
+        <canvas
+          ref={canvasRef}
           style={{
-            position: "absolute",
-            left: 14,
-            bottom: -14,
-            width: 0,
-            height: 0,
-            borderLeft: "5px solid transparent",
-            borderRight: "17px solid transparent",
-            borderTop: "14px solid rgba(59,158,255,0.35)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            left: 17,
-            bottom: -10,
-            width: 0,
-            height: 0,
-            borderLeft: "4px solid transparent",
-            borderRight: "14px solid transparent",
-            borderTop: "11px solid #0d1319",
+            width: AGENT_W,
+            height: AGENT_H,
+            flex: `0 0 ${AGENT_W}px`,
+            pointerEvents: "none",
+            display: "block",
           }}
         />
 
-        {/* title + body — keyed so they softly fade/slide in per step */}
-        <div key={i} style={{ animation: "tourTextIn 240ms ease-out" }}>
+        {/* speech bubble — tail points left at the agent's head */}
+        <div
+          style={{
+            position: "relative",
+            marginLeft: GAP,
+            maxWidth: BUBBLE_W,
+            background: "#0d1319",
+            border: "1.5px solid rgba(59,158,255,0.35)",
+            boxShadow: "4px 4px 0 0 #3b9eff",
+            borderRadius: 14,
+            padding: "18px 20px",
+            pointerEvents: "auto",
+          }}
+        >
+          {/* tail (outer = border color, inner = bubble bg) */}
           <div
-            className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.15em]"
-            style={{ color: "#3b9eff" }}
-          >
-            {step.title}
+            style={{
+              position: "absolute",
+              left: -13,
+              top: "50%",
+              marginTop: -11,
+              width: 0,
+              height: 0,
+              borderTop: "11px solid transparent",
+              borderBottom: "11px solid transparent",
+              borderRight: "13px solid rgba(59,158,255,0.35)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: -10,
+              top: "50%",
+              marginTop: -9,
+              width: 0,
+              height: 0,
+              borderTop: "9px solid transparent",
+              borderBottom: "9px solid transparent",
+              borderRight: "11px solid #0d1319",
+            }}
+          />
+
+          {/* title + body — keyed so they softly fade/slide in per step */}
+          <div key={i} style={{ animation: "tourTextIn 240ms ease-out" }}>
+            <div
+              className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.15em]"
+              style={{ color: "#3b9eff" }}
+            >
+              {step.title}
+            </div>
+            <p
+              className="mb-4 font-mono text-sm leading-relaxed"
+              style={{ color: "#e8edf2", minHeight: 52 }}
+            >
+              {step.body}
+            </p>
           </div>
 
-          <p
-            className="mb-4 font-mono text-sm leading-relaxed"
-            style={{ color: "#e8edf2", minHeight: 52 }}
-          >
-            {step.body}
-          </p>
-        </div>
-
-        {/* step progress */}
-        <div className="mb-3 flex items-center gap-1.5">
-          {steps.map((_, d) => (
+          {/* step progress */}
+          <div className="mb-3 flex items-center gap-1.5">
+            {steps.map((_, d) => (
+              <span
+                key={d}
+                style={{
+                  display: "block",
+                  height: 3,
+                  flex: d === i ? "0 0 16px" : "0 0 6px",
+                  background: d === i ? "#28d391" : d < i ? "#3b9eff" : "#1e2d3d",
+                  transition: "all 0.2s",
+                }}
+              />
+            ))}
             <span
-              key={d}
+              className="ml-auto text-[9px] font-mono tracking-[0.2em] uppercase"
+              style={{ color: "#8b98ab" }}
+            >
+              {i + 1} / {total}
+            </span>
+          </div>
+
+          {/* nav */}
+          <div className="flex items-center justify-between gap-3">
+            <button
+              onClick={prev}
+              disabled={i === 0}
+              className="text-[10px] font-mono tracking-[0.2em] uppercase px-4 py-2 border transition-colors"
               style={{
-                display: "block",
-                height: 3,
-                flex: d === i ? "0 0 16px" : "0 0 6px",
-                background: d === i ? "#28d391" : d < i ? "#3b9eff" : "#1e2d3d",
-                transition: "all 0.2s",
+                visibility: i === 0 ? "hidden" : "visible",
+                borderColor: "#3b9eff",
+                color: "#3b9eff",
+                background: "transparent",
+                cursor: "pointer",
               }}
-            />
-          ))}
-          <span
-            className="ml-auto text-[9px] font-mono tracking-[0.2em] uppercase"
-            style={{ color: "#8b98ab" }}
-          >
-            {i + 1} / {total}
-          </span>
-        </div>
+            >
+              ← Back
+            </button>
 
-        {/* nav */}
-        <div className="flex items-center justify-between gap-3">
-          <button
-            onClick={prev}
-            disabled={i === 0}
-            className="text-[10px] font-mono tracking-[0.2em] uppercase px-4 py-2 border transition-colors"
-            style={{
-              visibility: i === 0 ? "hidden" : "visible",
-              borderColor: "#3b9eff",
-              color: "#3b9eff",
-              background: "transparent",
-              cursor: "pointer",
-            }}
-          >
-            ← Back
-          </button>
+            <button
+              onClick={onDone}
+              className="text-[10px] font-mono tracking-[0.2em] uppercase transition-colors"
+              style={{ color: "#8b98ab", background: "transparent" }}
+            >
+              Skip
+            </button>
 
-          <button
-            onClick={onDone}
-            className="text-[10px] font-mono tracking-[0.2em] uppercase transition-colors"
-            style={{ color: "#8b98ab", background: "transparent" }}
-          >
-            Skip
-          </button>
-
-          <button
-            onClick={next}
-            className="text-[10px] font-mono tracking-[0.2em] uppercase px-6 py-2 border transition-colors"
-            style={{
-              borderColor: "#28d391",
-              color: "#0d1319",
-              background: "#28d391",
-              cursor: "pointer",
-              boxShadow: "2px 2px 0 0 #1a8a5e",
-            }}
-          >
-            {isLast ? "Let's go 🚀" : "Continue →"}
-          </button>
+            <button
+              onClick={next}
+              className="text-[10px] font-mono tracking-[0.2em] uppercase px-6 py-2 border transition-colors"
+              style={{
+                borderColor: "#28d391",
+                color: "#0d1319",
+                background: "#28d391",
+                cursor: "pointer",
+                boxShadow: "2px 2px 0 0 #1a8a5e",
+              }}
+            >
+              {isLast ? "Let's go 🚀" : "Continue →"}
+            </button>
+          </div>
         </div>
       </div>
     </>

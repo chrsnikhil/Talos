@@ -248,11 +248,12 @@ class Bot {
     torso.add(this.eyeG)
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0xf2f7ff })
     ;[-0.185, 0.185].forEach((ex) => {
-      const e = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.17, 0.02), eyeMat)
-      e.position.set(ex, 0, 0.012)
+      // slightly larger + pushed a touch forward so the eyes read clearly
+      const e = new THREE.Mesh(new THREE.BoxGeometry(0.155, 0.2, 0.02), eyeMat)
+      e.position.set(ex, 0, 0.02)
       this.eyeG.add(e)
-      const eg = glowSprite(0x9fd0ff, 0.26, 0.3)
-      eg.position.set(ex, 0, 0.03)
+      const eg = glowSprite(0x9fd0ff, 0.32, 0.42)
+      eg.position.set(ex, 0, 0.04)
       this.eyeG.add(eg)
     })
     /* mouth — canvas-textured plane on the visor, redrawn per expression
@@ -445,12 +446,11 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
   // Transparent scene — no background, no fog; the page shows through.
   const scene = new THREE.Scene()
 
-  // Framed for the corner "peeking" pose: moderately close on the upper body
-  // so the face (eyes/visor at world y≈1.12) sits just above canvas-center and
-  // expressions read clearly; ears/antenna still clear the frame edges.
+  // Framed close so the agent reads large and the face/eyes are clearly legible
+  // as it travels beside each section (full body still fits with a little room).
   const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 50)
-  camera.position.set(0, 1.35, 4.0)
-  camera.lookAt(0, 1.02, 0)
+  camera.position.set(0, 1.2, 3.4)
+  camera.lookAt(0, 1.0, 0)
 
   /* lights — warm key, cool hemi, blue rim (Talos studio look) */
   scene.add(new THREE.AmbientLight(0xf4f0e8, 0.4))

@@ -214,7 +214,7 @@ export default function Dashboard() {
       <div className="px-6 py-8 lg:px-10">
         {/* ===== VAULT (your embedded wallet + vault) ===== */}
         {tab === "VAULT" && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-tour="tab-vault">
             <div className="flex items-center gap-4">
               <span className="font-pixel text-2xl">MY VAULT</span>
               <div className="h-px flex-1 border-t border-border" />
