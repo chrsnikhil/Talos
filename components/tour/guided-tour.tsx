@@ -468,11 +468,11 @@ export function GuidedTour({
 
   if (!mounted || !step) return null
 
-  // ── spotlight geometry ──
+  // ── spotlight geometry (may be shrunk below to reserve the agent's lane) ──
   const holeL = rect ? Math.max(0, rect.left - PAD) : 0
-  const holeT = rect ? Math.max(0, rect.top - PAD) : 0
+  let holeT = rect ? Math.max(0, rect.top - PAD) : 0
   const holeW = rect ? rect.width + PAD * 2 : 0
-  const holeH = rect ? rect.height + PAD * 2 : 0
+  let holeH = rect ? rect.height + PAD * 2 : 0
 
   // ── traveling unit position: beside the spotlight (below-first), clamped ──
   // Always expressed as translate3d(x, y) so the glide runs purely on the
@@ -485,23 +485,39 @@ export function GuidedTour({
   if (rect) {
     const clampL = (v: number) => Math.min(Math.max(16, v), Math.max(16, vw - UNIT_W - 16))
     const clampT = (v: number) => Math.min(Math.max(16, v), Math.max(16, vh - UNIT_H - 16))
-    // Whole-tab spotlights all span the screen from the top-left, so parking
-    // "beside" them lands the agent in the same clamped spot every step. For
-    // those, cycle through a rotating set of anchors so it visibly travels/hops
-    // between steps. Specific controls (vault cells) keep the beside behaviour.
+    // Whole-tab spotlights fill most of the viewport, so any free-floating
+    // anchor would drop the (688px-wide) unit right on top of the content it's
+    // presenting. Instead: dock the unit flush to a viewport edge/corner —
+    // rotating per step so it still visibly travels — and RESERVE that lane by
+    // shrinking the spotlight hole on the docking side. The band the unit sits
+    // in stays dimmed, so the unit can never cover highlighted content.
+    // Specific controls (vault cells) keep the beside-the-rect behaviour.
     const large = rect.width > vw * 0.55 || rect.height > vh * 0.55
     if (large) {
-      const A = [
-        [0.03, 0.30],
-        [0.42, 0.06],
-        [0.03, 0.62],
-        [0.42, 0.6],
-        [0.2, 0.08],
-        [0.03, 0.45],
+      // [horizontal, vertical] dock per step — corners + bottom band only
+      // (side gutters can't fit a 688px-wide unit). Consecutive steps always
+      // land on a different dock so the hop between tabs stays lively.
+      const DOCKS: Array<["left" | "right" | "center", "top" | "bottom"]> = [
+        ["left", "bottom"],
+        ["right", "top"],
+        ["right", "bottom"],
+        ["left", "top"],
+        ["center", "bottom"],
       ]
-      const a = A[i % A.length]
-      unitX = clampL(vw * a[0])
-      unitY = clampT(vh * a[1])
+      const [h, v] = DOCKS[i % DOCKS.length]
+      unitX = clampL(h === "left" ? 16 : h === "right" ? vw - UNIT_W - 16 : (vw - UNIT_W) / 2)
+      unitY = clampT(v === "top" ? 16 : vh - UNIT_H - 16)
+      // Shrink the hole vertically so the unit's band is outside the
+      // spotlight (dimmed). No-ops when the hole doesn't reach the lane.
+      const LANE_GAP = 12
+      if (v === "top") {
+        const newTop = Math.min(Math.max(holeT, unitY + UNIT_H + LANE_GAP), holeT + holeH)
+        holeH -= newTop - holeT
+        holeT = newTop
+      } else {
+        const newBottom = Math.max(Math.min(holeT + holeH, unitY - LANE_GAP), holeT)
+        holeH = newBottom - holeT
+      }
     } else {
       let top = rect.bottom + 20
       if (top + UNIT_H > vh - 16) top = rect.top - UNIT_H - 20
