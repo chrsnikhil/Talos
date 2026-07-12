@@ -41,7 +41,12 @@ export function GuidedTour({
   // Pre-generated per-step voice (public/audio/tour/step-N.mp3). No live TTS.
   const [muted, setMuted] = useState(false)
   const [hasAudio, setHasAudio] = useState(false)
-  const audiosRef = useRef<HTMLAudioElement[]>([])
+  // Web Audio: decode each clip once and play off the main thread, so playback
+  // can't hitch the agent's WebGL render or the CSS glide. (An <audio> element's
+  // per-play decode on the main thread was causing the transition choppiness.)
+  const ctxRef = useRef<AudioContext | null>(null)
+  const buffersRef = useRef<(AudioBuffer | null)[]>([])
+  const srcRef = useRef<AudioBufferSourceNode | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -54,21 +59,34 @@ export function GuidedTour({
     try {
       setMuted(localStorage.getItem("talos_tour_muted") === "1")
     } catch {}
-    // Preload every clip up front so a step change never waits on a network
-    // fetch / src-swap (that was stalling the transition and feeling laggy).
-    const els = steps.map((_, n) => {
-      const a = new Audio(`/audio/tour/step-${n}.mp3`)
-      a.preload = "auto"
-      return a
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    ctxRef.current = ctx
+    buffersRef.current = steps.map(() => null)
+    let cancelled = false
+    // Fetch + decode every clip once (decode runs off the main thread).
+    steps.forEach((_, n) => {
+      fetch(`/audio/tour/step-${n}.mp3`)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error("missing"))))
+        .then((buf) => ctx.decodeAudioData(buf))
+        .then((audio) => {
+          if (cancelled) return
+          buffersRef.current[n] = audio
+          if (n === 0) setHasAudio(true)
+        })
+        .catch(() => {})
     })
-    els[0]?.addEventListener("canplay", () => setHasAudio(true), { once: true })
-    audiosRef.current = els
     return () => {
-      els.forEach((a) => {
-        a.pause()
-        a.src = ""
-      })
-      audiosRef.current = []
+      cancelled = true
+      try {
+        srcRef.current?.stop()
+      } catch {}
+      srcRef.current = null
+      ctx.close().catch(() => {})
+      ctxRef.current = null
     }
   }, [steps])
 
@@ -102,19 +120,21 @@ export function GuidedTour({
   // Play the current step's pre-generated voice line (autoplay can be blocked
   // before a gesture — swallow it; audio kicks in from the first Continue click).
   useEffect(() => {
-    const els = audiosRef.current
-    if (!els.length) return
-    els.forEach((a, n) => {
-      if (n !== i) a.pause()
-    })
-    const cur = els[i]
-    if (!cur) return
-    cur.currentTime = 0
-    if (muted) {
-      cur.pause()
-      return
-    }
-    cur.play().catch(() => {})
+    const ctx = ctxRef.current
+    if (!ctx) return
+    try {
+      srcRef.current?.stop()
+    } catch {}
+    srcRef.current = null
+    if (muted) return
+    const buf = buffersRef.current[i]
+    if (!buf) return
+    if (ctx.state === "suspended") ctx.resume().catch(() => {})
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.connect(ctx.destination)
+    src.start()
+    srcRef.current = src
   }, [i, muted])
 
   const toggleMute = useCallback(() => {
