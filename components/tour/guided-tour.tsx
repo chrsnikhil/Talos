@@ -488,18 +488,33 @@ export function GuidedTour({
 
   if (!mounted || !step) return null
 
-  // ── spotlight geometry (may be shrunk below to reserve the agent's lane) ──
-  const holeL = rect ? Math.max(0, rect.left - PAD) : 0
-  let holeT = rect ? Math.max(0, rect.top - PAD) : 0
-  const holeW = rect ? rect.width + PAD * 2 : 0
-  let holeH = rect ? rect.height + PAD * 2 : 0
+  // ── spotlight geometry (viewport-clamped; may be shrunk below to reserve
+  // the agent's lane) ──
+  // Clamp the hole to the viewport. A target taller/wider than the screen
+  // (the whole-tab steps: THOUGHT/PORTFOLIO/ON-CHAIN/REPUTATION) measures a
+  // rect that extends past the viewport after scrollIntoView centers it, and
+  // an unclamped hole draws the cut-out + ring partly off-screen — a ring
+  // with its top/bottom missing. Framing just the visible portion, ring flush
+  // to the viewport edges, reads correctly as "this whole section". The click
+  // shields inherit the same clamped geometry.
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const EDGE = 8
+  let holeL = 0
+  let holeT = 0
+  let holeW = 0
+  let holeH = 0
+  if (rect) {
+    holeL = Math.max(EDGE, rect.left - PAD)
+    holeT = Math.max(EDGE, rect.top - PAD)
+    holeW = Math.max(0, Math.min(vw - EDGE, rect.right + PAD) - holeL)
+    holeH = Math.max(0, Math.min(vh - EDGE, rect.bottom + PAD) - holeT)
+  }
 
   // ── traveling unit position: beside the spotlight (below-first), clamped ──
   // Always expressed as translate3d(x, y) so the glide runs purely on the
   // compositor: animating left/top forces a full layout+paint on every frame
   // (very janky over a heavy dashboard); transform never touches layout.
-  const vw = window.innerWidth
-  const vh = window.innerHeight
   let unitX: number
   let unitY: number
   if (rect) {
@@ -527,22 +542,49 @@ export function GuidedTour({
       const [h, v] = DOCKS[i % DOCKS.length]
       unitX = clampL(h === "left" ? 16 : h === "right" ? vw - UNIT_W - 16 : (vw - UNIT_W) / 2)
       unitY = clampT(v === "top" ? 16 : vh - UNIT_H - 16)
-      // Shrink the hole vertically so the unit's band is outside the
-      // spotlight (dimmed). No-ops when the hole doesn't reach the lane.
+      // Shrink the (already viewport-clamped) hole vertically so the unit's
+      // band is outside the spotlight (dimmed). No-ops when the hole doesn't
+      // reach the lane, and is SKIPPED entirely when it would crush the hole
+      // into a sliver (tiny viewports) — a slight unit overlap degrades better
+      // than no visible highlight.
       const LANE_GAP = 12
+      const MIN_HOLE = 100
       if (v === "top") {
         const newTop = Math.min(Math.max(holeT, unitY + UNIT_H + LANE_GAP), holeT + holeH)
-        holeH -= newTop - holeT
-        holeT = newTop
+        if (holeT + holeH - newTop >= MIN_HOLE) {
+          holeH -= newTop - holeT
+          holeT = newTop
+        }
       } else {
         const newBottom = Math.max(Math.min(holeT + holeH, unitY - LANE_GAP), holeT)
-        holeH = newBottom - holeT
+        if (newBottom - holeT >= MIN_HOLE) holeH = newBottom - holeT
       }
     } else {
-      let top = rect.bottom + 20
-      if (top + UNIT_H > vh - 16) top = rect.top - UNIT_H - 20
-      unitX = clampL(rect.left + rect.width / 2 - UNIT_W / 2)
-      unitY = clampT(top)
+      // Small targets (vault cells): sit beside the hole WITHOUT covering it.
+      // The old below-else-above flip could clamp the unit right on top of the
+      // target (vault-balance sits at the top of the right column: "below"
+      // overflows the viewport, "above" clamps back down over the cell). Try
+      // below → above → left → right, clamping each candidate first and
+      // rejecting any that still intersects the hole; e.g. vault-balance ends
+      // up to the LEFT, over the dimmed chart.
+      const holeR = holeL + holeW
+      const holeB = holeT + holeH
+      const clear = (x: number, y: number) =>
+        x + UNIT_W <= holeL - GAP ||
+        x >= holeR + GAP ||
+        y + UNIT_H <= holeT - GAP ||
+        y >= holeB + GAP
+      const cx = clampL(holeL + holeW / 2 - UNIT_W / 2)
+      const cy = clampT(holeT + holeH / 2 - UNIT_H / 2)
+      const candidates: Array<[number, number]> = [
+        [cx, clampT(holeB + 20)], // below
+        [cx, clampT(holeT - UNIT_H - 20)], // above
+        [clampL(holeL - UNIT_W - 20), cy], // left
+        [clampL(holeR + 20), cy], // right
+      ]
+      const pick = candidates.find(([x, y]) => clear(x, y)) ?? candidates[0]
+      unitX = pick[0]
+      unitY = pick[1]
     }
   } else {
     // centered fallback (same as the old translate(-50%,-50%) placement)
