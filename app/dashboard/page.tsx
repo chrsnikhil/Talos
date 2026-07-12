@@ -300,60 +300,123 @@ export default function Dashboard() {
 
         {/* ===== POLICY ===== */}
         {tab === "POLICY" && (
-          <div className="grid items-start gap-8 lg:grid-cols-2">
-            <Panel title="AGENT POLICY // THE ON-CHAIN LEASH">
-              {[
-                { k: "STATUS", v: status },
-                { k: "OWNER", v: trunc(policy?.owner) },
-                { k: "AGENT", v: trunc(policy?.agent) },
-                { k: "REMAINING BUDGET", v: policy?.remaining_budget ?? "—" },
-                { k: "PER-TX CAP", v: policy?.per_tx_cap ?? "—" },
-                { k: "TOTAL SPENT", v: policy?.total_spent ?? "—" },
-                { k: "EXPIRES", v: policy ? new Date(policy.expires_at_ms).toLocaleString() : "—" },
-              ].map((row) => (
-                <div key={row.k} className="flex items-center justify-between border-b border-border px-5 py-3 text-xs">
-                  <span className="uppercase tracking-widest text-muted-foreground">{row.k}</span>
-                  <span>{row.v}</span>
+          <div className="mx-auto max-w-5xl space-y-6">
+            {/* Center-staged hero: the leash */}
+            <div className="border-2 border-border">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-border px-8 py-6">
+                <div>
+                  <div className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">AGENT POLICY</div>
+                  <div className="mt-1.5 font-pixel text-3xl md:text-4xl">THE ON-CHAIN LEASH</div>
+                  <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+                    The agent decides off-chain — but it can only ever spend what this Move object permits.
+                    Every bound is enforced <span className="text-foreground">on-chain</span>; a violation aborts the whole transaction.
+                  </p>
                 </div>
-              ))}
-              <div className="px-5 py-4">
-                <div className="mb-2.5 text-[10px] uppercase tracking-widest text-muted-foreground">ALLOWED PROTOCOLS</div>
-                <div className="flex flex-wrap gap-2">
-                  {(policy?.protocols ?? []).map((p) => (
-                    <span key={p} className="border border-border px-2 py-1 text-[10px] uppercase tracking-wider">{p}</span>
-                  ))}
-                  {(!policy || policy.protocols.length === 0) && <span className="text-xs text-muted-foreground">—</span>}
+                <div className={`flex items-center gap-3 border-2 px-6 py-4 ${status === "ACTIVE" ? "border-accent text-accent" : status === "REVOKED" ? "border-red-500 text-red-400" : "border-border text-muted-foreground"}`}>
+                  <span className={`h-3.5 w-3.5 ${status === "ACTIVE" ? "animate-blink bg-accent" : status === "REVOKED" ? "bg-red-500" : "bg-foreground"}`} />
+                  <span className="font-pixel text-2xl md:text-3xl">{status}</span>
                 </div>
               </div>
-              <a href={`${EXPLORER}/object/${policy?.policyId ?? ""}`} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 border-t-2 border-border px-5 py-3 text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-foreground hover:text-background">
-                VIEW POLICY ON EXPLORER <ArrowUpRight size={14} />
-              </a>
-            </Panel>
 
-            <Panel title="ENFORCEMENT">
-              <div className="space-y-4 p-5 text-xs leading-relaxed text-muted-foreground">
-                <p>
-                  The agent decides off-chain — but it can only ever spend what this Move policy object permits. Every
-                  bound below is checked <span className="text-foreground">on-chain</span>; a violation aborts the
-                  transaction.
-                </p>
+              {/* Budget leash: big number + animated bar + budget-over-time chart */}
+              <div className="grid gap-8 p-8 lg:grid-cols-2">
+                <div>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">REMAINING BUDGET</div>
+                  <div className="mt-1 flex items-end gap-3">
+                    <span className="font-pixel text-5xl text-accent md:text-6xl">{policy?.remaining_budget ?? "—"}</span>
+                    <span className="mb-2 text-sm uppercase tracking-widest text-muted-foreground">/ {budgetTotal} USDC</span>
+                  </div>
+                  <div className="mt-5 h-3.5 w-full overflow-hidden border-2 border-border">
+                    <div className="h-full bg-accent transition-all duration-1000 ease-out" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="mt-2.5 flex justify-between text-xs uppercase tracking-widest text-muted-foreground">
+                    <span className="text-accent">{pct}% headroom</span>
+                    <span>cap {policy?.per_tx_cap ?? "—"} / tx · spent {policy?.total_spent ?? "—"}</span>
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">BUDGET OVER TIME</div>
+                  <div className="h-40 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={budgetSeries} margin={{ top: 6, right: 6, bottom: 0, left: 6 }}>
+                        <defs>
+                          <linearGradient id="polBud" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={ACCENT} stopOpacity={0.35} />
+                            <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid vertical={false} stroke={GRID} strokeOpacity={0.25} />
+                        <Tooltip content={<ChartTip />} cursor={{ stroke: ACCENT, strokeOpacity: 0.25 }} />
+                        <Area type="monotone" dataKey="remaining" stroke={ACCENT} strokeWidth={2} fill="url(#polBud)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* identity + expiry — bigger stat grid */}
+              <div className="grid grid-cols-2 border-t-2 border-border md:grid-cols-4">
                 {[
-                  ["BUDGET CEILING", "per-tx cap + remaining budget, decremented on every spend"],
-                  ["PROTOCOL SCOPE", "an allowlist — anything off-list is rejected"],
-                  ["EXPIRY", "expires_at_ms checked against the on-chain clock"],
-                  ["OWNER REVOCATION", "the OwnerCap flips revoked = true; the next spend aborts"],
-                ].map(([k, d]) => (
-                  <div key={k} className="flex gap-3">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 bg-accent" />
-                    <div>
-                      <div className="uppercase tracking-widest text-foreground">{k}</div>
-                      <div>{d}</div>
-                    </div>
+                  { k: "OWNER", v: trunc(policy?.owner) },
+                  { k: "AGENT", v: trunc(policy?.agent) },
+                  { k: "PER-TX CAP", v: policy?.per_tx_cap ?? "—" },
+                  {
+                    k: "EXPIRES IN",
+                    v: policy
+                      ? (() => {
+                          const d = policy.expires_at_ms - Date.now()
+                          if (d <= 0) return "EXPIRED"
+                          const days = Math.floor(d / 86400000)
+                          const hrs = Math.floor((d % 86400000) / 3600000)
+                          return days > 0 ? `${days}d ${hrs}h` : `${hrs}h`
+                        })()
+                      : "—",
+                  },
+                ].map((s, i) => (
+                  <div key={s.k} className={`px-6 py-5 ${i < 3 ? "border-b border-border md:border-b-0 md:border-r" : "border-b border-border md:border-b-0"} ${i % 2 === 0 ? "border-r md:border-r" : ""}`}>
+                    <div className="font-mono text-lg text-foreground">{s.v}</div>
+                    <div className="mt-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">{s.k}</div>
                   </div>
                 ))}
               </div>
-            </Panel>
+
+              {/* allowed protocols — bigger interactive chips */}
+              <div className="border-t-2 border-border px-8 py-6">
+                <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">ALLOWED PROTOCOLS · THE ALLOWLIST</div>
+                <div className="flex flex-wrap gap-3">
+                  {(policy?.protocols ?? []).map((p) => (
+                    <span key={p} className="border-2 border-border px-5 py-2.5 text-sm uppercase tracking-wider transition-colors hover:border-accent hover:text-accent">{p}</span>
+                  ))}
+                  {(!policy || policy.protocols.length === 0) && <span className="text-sm text-muted-foreground">—</span>}
+                </div>
+              </div>
+
+              <a href={`${EXPLORER}/object/${policy?.policyId ?? ""}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 border-t-2 border-border px-8 py-4 text-xs uppercase tracking-widest text-muted-foreground transition-colors hover:bg-foreground hover:text-background">
+                VIEW POLICY OBJECT ON SUISCAN <ArrowUpRight size={16} />
+              </a>
+            </div>
+
+            {/* enforcement bounds — interactive cards, bigger text */}
+            <div>
+              <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">// HOW THE LEASH HOLDS</div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {[
+                  ["BUDGET CEILING", "A per-tx cap plus a remaining budget, decremented on every spend. Over-spend → abort."],
+                  ["PROTOCOL SCOPE", "An on-chain allowlist. Any venue that isn't listed is rejected before funds move."],
+                  ["EXPIRY", "expires_at_ms is checked against the on-chain clock — the lease simply stops working."],
+                  ["OWNER REVOCATION", "Your OwnerCap flips revoked = true. The very next spend the agent tries aborts."],
+                ].map(([k, d]) => (
+                  <div key={k} className="group border-2 border-border p-6 transition-colors hover:border-accent">
+                    <div className="flex items-center gap-3">
+                      <span className="h-2 w-2 shrink-0 bg-accent transition-transform group-hover:scale-150" />
+                      <div className="font-pixel text-lg uppercase group-hover:text-accent">{k}</div>
+                    </div>
+                    <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">{d}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
