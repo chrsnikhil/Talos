@@ -474,7 +474,9 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 0.9
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+  // 1.5 instead of 2: on hi-dpi screens this is ~44% fewer pixels to shade
+  // every frame; on a 280×300 toon-shaded canvas the difference is invisible.
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
 
   // Transparent scene — no background, no fog; the page shows through.
   const scene = new THREE.Scene()
@@ -597,13 +599,28 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
 
   let raf = 0
   let disposed = false
+  let paused = false
   let last: number | null = null
   let elapsed = 0
+  // Cap the whole loop (physics + render) to ~40fps — the WebGL render is the
+  // dominant cost and the idle bob/hop read identically at the lower cadence.
+  // Physics stays smooth because everything is dt-based (on a 60Hz display
+  // this settles into an even every-other-vsync cadence). Frames under the
+  // budget exit before ANY work happens (no update, no render).
+  const MIN_FRAME = 1 / 40
+  let acc = 0
   const loop = (now: number) => {
-    if (disposed) return
-    if (last == null) last = now
-    const dt = Math.min(0.05, (now - last) / 1000)
+    if (disposed || paused) return
+    raf = requestAnimationFrame(loop)
+    if (last == null) {
+      last = now
+      return
+    }
+    acc += Math.min(0.05, (now - last) / 1000)
     last = now
+    if (acc < MIN_FRAME) return
+    const dt = Math.min(0.05, acc)
+    acc = 0
     elapsed += dt
     if (hopT > 0) {
       const p = 1 - hopT / HOP_DUR // 0→1 over the hop
@@ -616,9 +633,27 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
     bot.update(elapsed, dt)
     applyExpressionFace()
     renderer.render(scene, camera)
-    raf = requestAnimationFrame(loop)
   }
   raf = requestAnimationFrame(loop)
+
+  // Halt entirely while the tab is hidden (rAF is throttled there anyway, but
+  // this guarantees zero GPU work) and restart cleanly on return — resetting
+  // `last` so the away-time never lands as one giant dt.
+  const onVisibility = () => {
+    if (disposed) return
+    if (document.hidden) {
+      if (!paused) {
+        paused = true
+        cancelAnimationFrame(raf)
+      }
+    } else if (paused) {
+      paused = false
+      last = null
+      acc = 0
+      raf = requestAnimationFrame(loop)
+    }
+  }
+  document.addEventListener("visibilitychange", onVisibility)
 
   return {
     hop() {
@@ -631,6 +666,7 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
       if (disposed) return
       disposed = true
       cancelAnimationFrame(raf)
+      document.removeEventListener("visibilitychange", onVisibility)
       ro.disconnect()
       // The traverse below reaches the mouth too (it's a torso child): its
       // PlaneGeometry, MeshBasicMaterial and CanvasTexture map all get disposed.
