@@ -110,8 +110,9 @@ type Uplift = {
   projected: boolean
 }
 
-// Rolling client-side performance series: one point per uplift poll.
-type PerfPoint = { t: number; scallop?: number; navi?: number; kai?: number; agent?: number }
+// 30-day daily performance point (from /api/talos/performance): venue APYs + the agent's
+// best-venue-capture line.
+type PerfPoint = { label: string; scallop?: number; navi?: number; kai?: number; agent?: number }
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Signed-out: a single sign-in cell in the dashboard aesthetic.
@@ -154,7 +155,7 @@ export function VaultBento() {
   const { paused, loading: agentLoading, toggle } = useAgent()
 
   const [uplift, setUplift] = useState<Uplift | null>(null)
-  const [series, setSeries] = useState<PerfPoint[]>([])
+  const [perf, setPerf] = useState<PerfPoint[]>([])
   const [walletUsdc, setWalletUsdc] = useState<{ total: number; coinId: string | null }>({ total: 0, coinId: null })
 
   // Deposit / withdraw form state
@@ -217,21 +218,22 @@ export function VaultBento() {
     }
   }, [address, vault?.idleUsdc])
 
-  // Append a rolling performance point each time uplift updates. Muted venue lines
-  // (scallop/navi/kai) + a bold AGENT line = uplift.bestApy (the APY the swarm captures
-  // by always chasing the best venue). Capped to the last ~40 points.
+  // Real 30-day protocol APY history (Scallop/Navi/Kai via DefiLlama) + the AGENT line =
+  // the best venue each day (what the swarm captures by always chasing the top yield).
   useEffect(() => {
-    if (!uplift) return
-    const byKey = new Map(uplift.venues.map((v) => [v.key, v.apy]))
-    const point: PerfPoint = {
-      t: Date.now(),
-      scallop: byKey.get("scallop"),
-      navi: byKey.get("navi"),
-      kai: byKey.get("kai"),
-      agent: uplift.bestApy,
+    let dead = false
+    const load = () =>
+      fetch("/api/talos/performance", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => !dead && Array.isArray(d?.points) && setPerf(d.points))
+        .catch(() => {})
+    load()
+    const id = setInterval(load, 300_000) // daily data — refresh every 5 min
+    return () => {
+      dead = true
+      clearInterval(id)
     }
-    setSeries((prev) => [...prev, point].slice(-40))
-  }, [uplift])
+  }, [])
 
   // Read the user's spendable USDC coins client-side so deposit needs only an amount.
   const loadWalletUsdc = useCallback(async () => {
@@ -373,22 +375,22 @@ export function VaultBento() {
     <div className="grid gap-4 lg:grid-cols-5">
       {/* ══ LEFT: performance line chart (hero) ══ */}
       <Cell
-        title="// PERFORMANCE — AGENT vs VENUES"
+        title="// 30-DAY PERFORMANCE — AGENT vs PROTOCOLS"
         className="lg:col-span-3"
         bodyClass="flex flex-col p-4"
       >
         <p className="mb-3 text-[10px] uppercase tracking-widest text-muted-foreground">
-          agent tracks the best venue · currently holding{" "}
+          real 30-day venue APY history · agent captures the best venue · now{" "}
           <span className="text-accent">{holding}</span>
         </p>
         <div className="h-[340px] w-full">
-          {series.length < 2 ? (
+          {perf.length < 2 ? (
             <div className="flex h-full items-center justify-center text-center text-[10px] uppercase tracking-widest text-muted-foreground">
-              collecting live data…
+              loading 30-day history…
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+              <ComposedChart data={perf} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
                 <defs>
                   <linearGradient id="perfAgent" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={ACCENT} stopOpacity={0.28} />
@@ -396,7 +398,13 @@ export function VaultBento() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke={GRID} vertical={false} />
-                <XAxis dataKey="t" hide />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: TICK, fontSize: 9, fontFamily: "var(--font-mono)" }}
+                  tickLine={false}
+                  interval={4}
+                  minTickGap={16}
+                />
                 <YAxis
                   stroke={GRID}
                   tick={{ fill: TICK, fontSize: 10, fontFamily: "var(--font-mono)" }}
