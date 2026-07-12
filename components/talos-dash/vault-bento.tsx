@@ -199,16 +199,21 @@ export function VaultBento() {
     setTimeout(() => setCopied(null), 1500)
   }
 
-  // Load yield-uplift analytics (best-effort)
+  // Load yield-uplift analytics — POLLED so the performance chart accumulates a live
+  // series (a single fetch would leave the chart stuck at one flat point).
   useEffect(() => {
     if (!address) return
     let dead = false
-    fetch("/api/wallet/uplift")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => !dead && d && setUplift(d))
-      .catch(() => {})
+    const load = () =>
+      fetch("/api/wallet/uplift")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => !dead && d && setUplift(d))
+        .catch(() => {})
+    load()
+    const id = setInterval(load, 8000)
     return () => {
       dead = true
+      clearInterval(id)
     }
   }, [address, vault?.idleUsdc])
 
