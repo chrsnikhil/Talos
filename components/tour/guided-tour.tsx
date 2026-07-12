@@ -237,6 +237,11 @@ export function GuidedTour({
 
     const tabKey = step.tab ? step.tab.toLowerCase().replace(/[^a-z]/g, "") : null
     const fallbackSel = tabKey ? `[data-tour="tab-${tabKey}"]` : null
+    // Whole-tab targets scroll TOP-aligned (see locate below). The dashboard's
+    // sticky top bar + tab bar (~104px) would swallow the content's top edge
+    // after block:"start", so nudge back down by a hair more than their height.
+    const isTabTarget = step.target.startsWith("tab-")
+    const STICKY_OFFSET = 112
     const qSpecific = () =>
       document.querySelector(`[data-tour="${step.target}"]`) as HTMLElement | null
     const qFallback = () =>
@@ -267,7 +272,18 @@ export function GuidedTour({
         // Locked onto the real control. Scroll INSTANTLY (not smooth): a smooth
         // scroll fires a scroll event every frame → a re-measure/re-render storm
         // that re-targets the unit's glide each frame and makes it stutter.
-        specific.scrollIntoView({ block: "center", behavior: "auto" })
+        // Whole-tab targets TOP-align instead of centering: centering parks the
+        // content's bottom right in the agent's reserved bottom band, so the
+        // event stream tail / [live] line got dimmed even when the section fit
+        // the viewport. Top-aligned (just under the sticky bars), content that
+        // fits sits fully inside the hole with the agent in the clear space
+        // below it; only genuinely tall sections spill past the agent's band.
+        if (isTabTarget) {
+          specific.scrollIntoView({ block: "start", behavior: "auto" })
+          window.scrollBy(0, -STICKY_OFFSET) // instant, one remeasure — not smooth
+        } else {
+          specific.scrollIntoView({ block: "center", behavior: "auto" })
+        }
         apply(specific.getBoundingClientRect())
         if (ro) ro.disconnect(), (ro = null) // re-observe the real control (may replace the fallback)
         observe(specific)
@@ -547,6 +563,10 @@ export function GuidedTour({
       // Reserve the bottom band (agent sits over dimmed page below the content,
       // never over highlighted content). Skipped if it would crush the hole to
       // a sliver — a slight overlap degrades better than no visible highlight.
+      // No-op when the content already fits above the band: with tab targets
+      // scrolled top-aligned (see the locate effect), a section that fits the
+      // viewport (LIVE/POLICY) has hole bottom ≤ unitY - LANE_GAP, so the
+      // Math.min keeps the full content bottom and nothing gets shaved.
       const newBottom = Math.max(Math.min(holeT + holeH, unitY - LANE_GAP), holeT)
       if (newBottom - holeT >= MIN_HOLE) holeH = newBottom - holeT
     } else {

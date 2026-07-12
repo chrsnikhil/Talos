@@ -92,11 +92,15 @@ pnpm build 2>&1 | tail -6
 REMOTE
 
 echo "==> [4/4] Restarting PM2 ($MODE) + save"
-if [ "$MODE" = "swarm" ]; then
-  ssh "$VM" 'cd ~/Talos && pm2 restart talos-swarm && pm2 save && pm2 status'
-else
-  ssh "$VM" 'cd ~/Talos && pm2 restart all && pm2 save && pm2 status'
-fi
+# web  -> restart only talos-web (preserves the swarm's uptime + in-memory cycle
+#         counter + live feed — use for dashboard/tour-only changes)
+# swarm-> restart only talos-swarm
+# all  -> restart both (default)
+case "$MODE" in
+  web)   ssh "$VM" 'cd ~/Talos && pm2 restart talos-web && pm2 save && pm2 status' ;;
+  swarm) ssh "$VM" 'cd ~/Talos && pm2 restart talos-swarm && pm2 save && pm2 status' ;;
+  *)     ssh "$VM" 'cd ~/Talos && pm2 restart all && pm2 save && pm2 status' ;;
+esac
 
 echo ""
 echo "==> Done. Tail the swarm to confirm it is iterating vaults:"
