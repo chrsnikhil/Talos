@@ -17,7 +17,7 @@ export const TOUR_STEPS: TourStep[] = [
     tab: null,
     target: null,
     title: "Hey, I'm Icarus",
-    body: "👋 I'll be running your vault. Give me 30 seconds and I'll show you around. (← → to move, Esc to skip.)",
+    body: "I'll be running your vault. Give me 30 seconds and I'll show you around. Use the arrow keys to move, or Esc to skip.",
     expr: "happy",
   },
   {
@@ -38,7 +38,7 @@ export const TOUR_STEPS: TourStep[] = [
     tab: "VAULT",
     target: "vault-deposit",
     title: "Feed me USDC",
-    body: "Drop some USDC in here and I'll put it to work in about 30 seconds. No pressure. 😄",
+    body: "Drop some USDC in here and I'll put it to work in about 30 seconds. No pressure.",
     expr: "excited",
   },
   {
@@ -115,7 +115,7 @@ export const TOUR_STEPS: TourStep[] = [
     tab: null,
     target: null,
     title: "That's the tour!",
-    body: "You're all set. Deposit whenever you're ready and I've got it from here. 🚀",
+    body: "You're all set. Deposit whenever you're ready, and I've got it from here.",
     expr: "celebrate",
   },
 ]

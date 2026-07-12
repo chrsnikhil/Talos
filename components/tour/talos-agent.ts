@@ -446,11 +446,11 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
   // Transparent scene — no background, no fog; the page shows through.
   const scene = new THREE.Scene()
 
-  // Framed close so the agent reads large and the face/eyes are clearly legible
-  // as it travels beside each section (full body still fits with a little room).
+  // Framed to fit the WHOLE agent (head-to-toe, ears included) with margin so
+  // nothing is clipped by the canvas edges, while still reading large.
   const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 50)
-  camera.position.set(0, 1.2, 3.4)
-  camera.lookAt(0, 1.0, 0)
+  camera.position.set(0, 1.1, 4.2)
+  camera.lookAt(0, 0.95, 0)
 
   /* lights — warm key, cool hemi, blue rim (Talos studio look) */
   scene.add(new THREE.AmbientLight(0xf4f0e8, 0.4))
@@ -551,7 +551,10 @@ export function createTalosAgent(canvas: HTMLCanvasElement): TalosAgentHandle {
     }
     eg.scale.x = sx
     eg.scale.y *= syMul
-    eg.position.y = ey
+    // eyeG's base height is 0.66 (set in the constructor); ey is a small
+    // expression offset. Must add to the base — assigning ey alone teleports
+    // the eyes down into the body (they vanish from the visor).
+    eg.position.y = 0.66 + ey
     if (expr === "proud") {
       // chest core brighter (update() sets base opacity every frame)
       bot.core.material.opacity = Math.min(1, bot.core.material.opacity + 0.18)
