@@ -46,15 +46,17 @@ function Cell({
   className = "",
   bodyClass = "p-5",
   style,
+  tour,
 }: {
   title?: string
   children: React.ReactNode
   className?: string
   bodyClass?: string
   style?: CSSProperties
+  tour?: string
 }) {
   return (
-    <div className={`border-2 border-border ${className}`} style={style}>
+    <div className={`border-2 border-border ${className}`} style={style} data-tour={tour}>
       {title && (
         <div className="border-b-2 border-border px-4 py-2 text-[10px] uppercase tracking-widest text-muted-foreground">
           {title}
@@ -405,6 +407,7 @@ export function VaultBento() {
       {/* ══ LEFT: performance line chart (hero) ══ */}
       <Cell
         title="// PERFORMANCE — AGENT vs PROTOCOLS"
+        tour="vault-chart"
         className="lg:col-span-3"
         bodyClass="flex h-full flex-col p-4"
         style={isLg && rightH ? { height: rightH } : undefined}
@@ -516,7 +519,7 @@ export function VaultBento() {
       {/* ══ RIGHT: compact control stack ══ */}
       <div ref={measureRight} className="flex flex-col gap-3 lg:col-span-2">
         {/* Balance */}
-        <Cell title="// VAULT BALANCE" bodyClass="p-4">
+        <Cell title="// VAULT BALANCE" tour="vault-balance" bodyClass="p-4">
           <div className="flex items-end justify-between">
             <div>
               <div className="font-pixel text-4xl leading-none text-accent">{fmtUsdc(idle)}</div>
@@ -559,7 +562,7 @@ export function VaultBento() {
           </Cell>
 
           {/* Agent */}
-          <Cell title="// AGENT" bodyClass="p-3">
+          <Cell title="// AGENT" tour="vault-agent" bodyClass="p-3">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-1.5">
                 <span className={`h-2 w-2 ${paused ? "bg-amber-400" : "animate-blink bg-accent"}`} />
@@ -580,7 +583,7 @@ export function VaultBento() {
           </Cell>
 
           {/* Policy */}
-          <Cell title="// POLICY" bodyClass="p-3">
+          <Cell title="// POLICY" tour="vault-policy" bodyClass="p-3">
             <div className={`font-pixel text-sm ${vault?.revoked ? "text-red-400" : "text-accent"}`}>
               {vault?.revoked ? "REVOKED" : "ACTIVE"}
             </div>
@@ -591,7 +594,7 @@ export function VaultBento() {
 
         {/* Deposit + Withdraw */}
         <div className="grid grid-cols-2 gap-3">
-          <Cell title="// DEPOSIT" bodyClass="p-3">
+          <Cell title="// DEPOSIT" tour="vault-deposit" bodyClass="p-3">
             <div className="flex flex-col gap-2">
               <input
                 type="number"
@@ -641,7 +644,7 @@ export function VaultBento() {
         </div>
 
         {/* PANIC / EMERGENCY */}
-        <Cell title="// EMERGENCY" bodyClass="p-3">
+        <Cell title="// EMERGENCY" tour="vault-panic" bodyClass="p-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[9px] uppercase tracking-widest text-muted-foreground">
               {panicConfirm ? "revokes policy + withdraws ALL" : "one-tap kill-switch"}
@@ -670,7 +673,7 @@ export function VaultBento() {
         </Cell>
 
         {/* Wallet + MCP connector */}
-        <Cell title="// WALLET · CLAUDE (MCP)" bodyClass="flex flex-col gap-3 p-3">
+        <Cell title="// WALLET · CLAUDE (MCP)" tour="vault-wallet" bodyClass="flex flex-col gap-3 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <code className="block truncate font-mono text-[11px] text-foreground" title={address}>

@@ -9,18 +9,20 @@ import { ThoughtStream } from "@/components/talos-dash/thought-stream"
 import { PortfolioPanel } from "@/components/talos-dash/portfolio-panel"
 import { OnchainStream } from "@/components/talos-dash/onchain-stream"
 import { VaultBento } from "@/components/talos-dash/vault-bento"
+import { TOUR_STEPS } from "@/components/tour/tour-steps"
+import { useManagedWallet } from "@/lib/wallet/use-managed-wallet"
 
 const WorkshopScene = dynamic(
   () => import("@/components/talos-dash/workshop/scene").then((m) => m.WorkshopScene),
   { ssr: false, loading: () => <div className="flex h-[520px] items-center justify-center border-2 border-border text-xs uppercase tracking-widest text-muted-foreground">loading workshop…</div> },
 )
 
-// Client-only (react-three-fiber). Shown once on first dashboard visit.
-const OnboardingWizard = dynamic(
-  () => import("@/components/wizard/onboarding-wizard").then((m) => m.OnboardingWizard),
+// Client-only (react-three-fiber). Fires once on first login; replayable from the top bar.
+const GuidedTour = dynamic(
+  () => import("@/components/tour/guided-tour").then((m) => m.GuidedTour),
   { ssr: false },
 )
-const ONBOARDED_KEY = "talos_onboarded_v1"
+const TOUR_KEY = "talos_tour_v1"
 
 const EXPLORER = "https://suiscan.xyz/mainnet"
 const ACCENT = "#3b97fb"
@@ -100,16 +102,18 @@ export default function Dashboard() {
   const [swarm, setSwarm] = useState<Swarm | null>(null)
   const [updated, setUpdated] = useState<Date | null>(null)
   const [tab, setTab] = useState<Tab>("LIVE")
-  const [showWizard, setShowWizard] = useState(false)
+  const [showTour, setShowTour] = useState(false)
+  const { address } = useManagedWallet()
 
-  // Onboarding wizard: show once, first dashboard visit only.
+  // Guided tour: fires once on first login; replayable via the top-bar button.
   useEffect(() => {
-    if (!localStorage.getItem(ONBOARDED_KEY)) setShowWizard(true)
-  }, [])
-  const dismissWizard = () => {
-    localStorage.setItem(ONBOARDED_KEY, "1")
-    setShowWizard(false)
+    if (address && !localStorage.getItem(TOUR_KEY)) setShowTour(true)
+  }, [address])
+  const dismissTour = () => {
+    localStorage.setItem(TOUR_KEY, "1")
+    setShowTour(false)
   }
+  const runTour = () => setShowTour(true)
 
   // Open a specific tab when arrived via ?tab= (e.g. OAuth callback → ?tab=VAULT).
   useEffect(() => {
@@ -166,7 +170,7 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      {showWizard && <OnboardingWizard onDone={dismissWizard} />}
+      {showTour && <GuidedTour steps={TOUR_STEPS} setTab={setTab} onDone={dismissTour} />}
       {/* top bar */}
       <div className="sticky top-0 z-40 flex items-stretch justify-between border-b-2 border-border bg-background">
         <a href="/" className="flex items-center gap-2 border-r-2 border-border px-5 py-4 hover:bg-foreground hover:text-background">
@@ -175,6 +179,12 @@ export default function Dashboard() {
           <span className="text-[10px] tracking-widest text-muted-foreground">/OPERATOR</span>
         </a>
         <div className="flex items-center gap-3 px-5 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <button
+            onClick={runTour}
+            className="border border-border px-2.5 py-1 text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-accent"
+          >
+            ? RUN ONBOARDING
+          </button>
           <span className="hidden sm:inline">{updated ? `UPDATED ${updated.toLocaleTimeString()}` : "CONNECTING…"}</span>
           <span className="flex items-center gap-2 text-foreground">
             <span className={`h-2 w-2 ${status === "ACTIVE" ? "animate-blink bg-accent" : "bg-foreground"}`} />
@@ -218,7 +228,7 @@ export default function Dashboard() {
         {tab === "LIVE" && (
           <div className="space-y-8">
             {/* Voxel workshop + live event stream — the centerpiece, up top */}
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <div data-tour="tab-live" className="grid grid-cols-1 gap-8 lg:grid-cols-3">
               <div className="lg:col-span-2 border-2 border-border">
                 <div className="border-b-2 border-border px-5 py-2.5 text-[11px] uppercase tracking-widest">AGENT WORKSHOP // ICARUS · DAEDALUS</div>
                 <div className="h-[520px]"><WorkshopScene bare /></div>
@@ -286,21 +296,23 @@ export default function Dashboard() {
         )}
 
         {/* ===== THOUGHT ===== */}
-        {tab === "THOUGHT" && <ThoughtStream />}
+        {tab === "THOUGHT" && <div data-tour="tab-thought"><ThoughtStream /></div>}
 
         {/* ===== PORTFOLIO ===== */}
-        {tab === "PORTFOLIO" && <PortfolioPanel />}
+        {tab === "PORTFOLIO" && <div data-tour="tab-portfolio"><PortfolioPanel /></div>}
 
         {/* ===== ON-CHAIN ===== */}
         {tab === "ON-CHAIN" && (
-          <Panel title={`ON-CHAIN PROOFS // SUI · WALRUS`}>
-            <div className="p-3"><OnchainStream bare /></div>
-          </Panel>
+          <div data-tour="tab-onchain">
+            <Panel title={`ON-CHAIN PROOFS // SUI · WALRUS`}>
+              <div className="p-3"><OnchainStream bare /></div>
+            </Panel>
+          </div>
         )}
 
         {/* ===== POLICY ===== */}
         {tab === "POLICY" && (
-          <div className="mx-auto max-w-5xl space-y-6">
+          <div data-tour="tab-policy" className="mx-auto max-w-5xl space-y-6">
             {/* Center-staged hero: the leash */}
             <div className="border-2 border-border">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-border px-8 py-6">
@@ -422,7 +434,7 @@ export default function Dashboard() {
 
         {/* ===== REPUTATION ===== */}
         {tab === "REPUTATION" && (
-          <div className="space-y-8">
+          <div data-tour="tab-reputation" className="space-y-8">
             <div className="grid grid-cols-2 border-2 border-border [&>*]:border-r-2 [&>*]:border-border">
               <Stat label="AVG SCORE /100" value={rep ? rep.avg : "—"} accent />
               <Stat label="TOTAL RATINGS" value={rep ? rep.total : "—"} />
