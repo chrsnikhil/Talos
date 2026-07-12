@@ -527,8 +527,15 @@ export function GuidedTour({
     // shrinking the spotlight hole on the docking side. The band the unit sits
     // in stays dimmed, so the unit can never cover highlighted content.
     // Specific controls (vault cells) keep the beside-the-rect behaviour.
-    const large = rect.width > vw * 0.55 || rect.height > vh * 0.55
-    if (large) {
+    // Classify by the step's TARGET, not the rect's size: only genuine
+    // whole-tab spotlights (target "tab-*") get the dock + lane-shrink path.
+    // The old size test (rect wider/taller than 55% of the viewport)
+    // misclassified the wide vault performance chart as a whole-tab step and
+    // its "top" lane-shrink cut off the chart header + trend line.
+    const isTab = !!step.target && step.target.startsWith("tab-")
+    const LANE_GAP = 12
+    const MIN_HOLE = 100
+    if (isTab) {
       // [horizontal, vertical] dock per step — corners + bottom band only
       // (side gutters can't fit a 688px-wide unit). Consecutive steps always
       // land on a different dock so the hop between tabs stays lively.
@@ -547,8 +554,6 @@ export function GuidedTour({
       // reach the lane, and is SKIPPED entirely when it would crush the hole
       // into a sliver (tiny viewports) — a slight unit overlap degrades better
       // than no visible highlight.
-      const LANE_GAP = 12
-      const MIN_HOLE = 100
       if (v === "top") {
         const newTop = Math.min(Math.max(holeT, unitY + UNIT_H + LANE_GAP), holeT + holeH)
         if (holeT + holeH - newTop >= MIN_HOLE) {
@@ -582,9 +587,24 @@ export function GuidedTour({
         [clampL(holeL - UNIT_W - 20), cy], // left
         [clampL(holeR + 20), cy], // right
       ]
-      const pick = candidates.find(([x, y]) => clear(x, y)) ?? candidates[0]
-      unitX = pick[0]
-      unitY = pick[1]
+      const pick = candidates.find(([x, y]) => clear(x, y))
+      if (pick) {
+        unitX = pick[0]
+        unitY = pick[1]
+      } else {
+        // Oversized control (the vault performance chart spans nearly the
+        // full viewport width): no beside-candidate can clear the hole. Dock
+        // the unit into the BOTTOM band and shrink ONLY the bottom of the
+        // hole to reserve it. The chart's important content — the header and
+        // the agent trend line — rides across the TOP, so sacrificing a
+        // bottom strip (older data / x-axis) is fine; NEVER top-shrink a
+        // vault control. Same MIN_HOLE guard as the tab path: on tiny
+        // viewports a slight overlap degrades better than no highlight.
+        unitX = clampL((vw - UNIT_W) / 2)
+        unitY = clampT(vh - UNIT_H - 16)
+        const newBottom = Math.max(Math.min(holeT + holeH, unitY - LANE_GAP), holeT)
+        if (newBottom - holeT >= MIN_HOLE) holeH = newBottom - holeT
+      }
     }
   } else {
     // centered fallback (same as the old translate(-50%,-50%) placement)
