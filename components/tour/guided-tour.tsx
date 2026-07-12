@@ -246,6 +246,20 @@ export function GuidedTour({
     // the rect rarely actually changes.
     const apply = (r: DOMRect) => setRect((p) => (sameRect(p, r) ? p : r))
 
+    // Track the target's OWN size changes. Some targets settle/grow AFTER we
+    // first measure them — the perf chart card is sized to the controls column
+    // (a ResizeObserver in vault-bento), and the LIVE tab's 3D workshop + event
+    // stream fill in — and window scroll/resize never fires for that, so the
+    // highlight would otherwise lock to the initial, too-small rect.
+    let ro: ResizeObserver | null = null
+    const observe = (el: HTMLElement) => {
+      if (ro) return // already watching the active target
+      ro = new ResizeObserver(() => {
+        if (!cancelled) apply(el.getBoundingClientRect())
+      })
+      ro.observe(el)
+    }
+
     const locate = () => {
       if (cancelled) return
       const specific = qSpecific()
@@ -255,12 +269,17 @@ export function GuidedTour({
         // that re-targets the unit's glide each frame and makes it stutter.
         specific.scrollIntoView({ block: "center", behavior: "auto" })
         apply(specific.getBoundingClientRect())
+        if (ro) ro.disconnect(), (ro = null) // re-observe the real control (may replace the fallback)
+        observe(specific)
         return
       }
       // Not ready — spotlight the tab container meanwhile so the section is
       // focused (not dimmed), and keep polling for the exact control.
       const fb = qFallback()
-      if (fb) apply(fb.getBoundingClientRect())
+      if (fb) {
+        apply(fb.getBoundingClientRect())
+        observe(fb)
+      }
       if (attempts < 24) {
         attempts++
         timer = setTimeout(locate, 150)
@@ -289,6 +308,7 @@ export function GuidedTour({
       cancelled = true
       if (timer) clearTimeout(timer)
       if (raf) cancelAnimationFrame(raf)
+      ro?.disconnect()
       window.removeEventListener("scroll", remeasure, true)
       window.removeEventListener("resize", remeasure)
     }
