@@ -552,23 +552,15 @@ export function GuidedTour({
     const LANE_GAP = 12
     const MIN_HOLE = 100
     if (isTab) {
-      // Always dock the agent along the BOTTOM band, rotating the horizontal
-      // position per step so it still visibly travels between tabs. Top-docking
-      // was cutting off section headers (e.g. the LIVE tab's workshop header +
-      // controls) — bottom-only keeps the TOP of every section highlighted.
+      // Highlight the FULL section — do NOT reserve/shrink a lane for the agent.
+      // Per the user: the reserved bottom band was eating the section's bottom
+      // (e.g. the LIVE event stream's newest rows). "Ignore the agent and do the
+      // highlight anyway" — the agent+bubble just sits over the bottom of the
+      // content; the dock horizontal rotates per step so it still travels.
       const HDOCKS: Array<"left" | "center" | "right"> = ["left", "center", "right"]
       const h = HDOCKS[i % HDOCKS.length]
       unitX = clampL(h === "left" ? 16 : h === "right" ? vw - UNIT_W - 16 : (vw - UNIT_W) / 2)
       unitY = clampT(vh - UNIT_H - 16)
-      // Reserve the bottom band (agent sits over dimmed page below the content,
-      // never over highlighted content). Skipped if it would crush the hole to
-      // a sliver — a slight overlap degrades better than no visible highlight.
-      // No-op when the content already fits above the band: with tab targets
-      // scrolled top-aligned (see the locate effect), a section that fits the
-      // viewport (LIVE/POLICY) has hole bottom ≤ unitY - LANE_GAP, so the
-      // Math.min keeps the full content bottom and nothing gets shaved.
-      const newBottom = Math.max(Math.min(holeT + holeH, unitY - LANE_GAP), holeT)
-      if (newBottom - holeT >= MIN_HOLE) holeH = newBottom - holeT
     } else {
       // Small targets (vault cells): sit beside the hole WITHOUT covering it.
       // The old below-else-above flip could clamp the unit right on top of the
