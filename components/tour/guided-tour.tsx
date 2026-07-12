@@ -536,34 +536,19 @@ export function GuidedTour({
     const LANE_GAP = 12
     const MIN_HOLE = 100
     if (isTab) {
-      // [horizontal, vertical] dock per step — corners + bottom band only
-      // (side gutters can't fit a 688px-wide unit). Consecutive steps always
-      // land on a different dock so the hop between tabs stays lively.
-      const DOCKS: Array<["left" | "right" | "center", "top" | "bottom"]> = [
-        ["left", "bottom"],
-        ["right", "top"],
-        ["right", "bottom"],
-        ["left", "top"],
-        ["center", "bottom"],
-      ]
-      const [h, v] = DOCKS[i % DOCKS.length]
+      // Always dock the agent along the BOTTOM band, rotating the horizontal
+      // position per step so it still visibly travels between tabs. Top-docking
+      // was cutting off section headers (e.g. the LIVE tab's workshop header +
+      // controls) — bottom-only keeps the TOP of every section highlighted.
+      const HDOCKS: Array<"left" | "center" | "right"> = ["left", "center", "right"]
+      const h = HDOCKS[i % HDOCKS.length]
       unitX = clampL(h === "left" ? 16 : h === "right" ? vw - UNIT_W - 16 : (vw - UNIT_W) / 2)
-      unitY = clampT(v === "top" ? 16 : vh - UNIT_H - 16)
-      // Shrink the (already viewport-clamped) hole vertically so the unit's
-      // band is outside the spotlight (dimmed). No-ops when the hole doesn't
-      // reach the lane, and is SKIPPED entirely when it would crush the hole
-      // into a sliver (tiny viewports) — a slight unit overlap degrades better
-      // than no visible highlight.
-      if (v === "top") {
-        const newTop = Math.min(Math.max(holeT, unitY + UNIT_H + LANE_GAP), holeT + holeH)
-        if (holeT + holeH - newTop >= MIN_HOLE) {
-          holeH -= newTop - holeT
-          holeT = newTop
-        }
-      } else {
-        const newBottom = Math.max(Math.min(holeT + holeH, unitY - LANE_GAP), holeT)
-        if (newBottom - holeT >= MIN_HOLE) holeH = newBottom - holeT
-      }
+      unitY = clampT(vh - UNIT_H - 16)
+      // Reserve the bottom band (agent sits over dimmed page below the content,
+      // never over highlighted content). Skipped if it would crush the hole to
+      // a sliver — a slight overlap degrades better than no visible highlight.
+      const newBottom = Math.max(Math.min(holeT + holeH, unitY - LANE_GAP), holeT)
+      if (newBottom - holeT >= MIN_HOLE) holeH = newBottom - holeT
     } else {
       // Small targets (vault cells): sit beside the hole WITHOUT covering it.
       // The old below-else-above flip could clamp the unit right on top of the
