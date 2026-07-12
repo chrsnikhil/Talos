@@ -1,7 +1,17 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { SuiClient, getFullnodeUrl } from "@mysten/sui/client"
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 import { useManagedWallet } from "@/lib/wallet/use-managed-wallet"
 import { useVault } from "@/lib/wallet/use-vault"
 import { useAgent } from "@/lib/wallet/use-agent"
@@ -9,6 +19,16 @@ import { buildDeposit, buildOwnerWithdrawUsdc, buildPanic, USDC_TYPE } from "@/l
 
 const EXPLORER = "https://suiscan.xyz/mainnet"
 const reader = new SuiClient({ url: getFullnodeUrl("mainnet") })
+
+// chart palette — mirrors app/dashboard/page.tsx
+const ACCENT = "#3b97fb"
+const GRID = "#2e3440"
+const TICK = "#8a93a6"
+const VENUE_COLORS: Record<string, string> = {
+  scallop: "#8a93a6",
+  navi: "#5b6472",
+  kai: "#c0c6d0",
+}
 
 // ─── formatting ────────────────────────────────────────────────────────────────
 const fmtUsdc = (raw: string | number | undefined) => {
@@ -55,6 +75,27 @@ function TxLink({ digest }: { digest: string }) {
   )
 }
 
+// Tooltip for the performance chart (dashboard aesthetic).
+function PerfTip({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: { name?: string; value?: number; color?: string; dataKey?: string }[]
+}) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="border-2 border-border bg-background px-3 py-2 font-mono text-[10px] uppercase tracking-widest">
+      {payload.map((p) => (
+        <div key={p.dataKey} className="flex items-center gap-2" style={{ color: p.color }}>
+          <span>{p.name}</span>
+          <span>{typeof p.value === "number" ? p.value.toFixed(2) : "—"}%</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── venue APY mini-bars (dashboard aesthetic) ──────────────────────────────────
 type Uplift = {
   bestApy: number
@@ -67,6 +108,9 @@ type Uplift = {
   principal: number
   projected: boolean
 }
+
+// Rolling client-side performance series: one point per uplift poll.
+type PerfPoint = { t: number; scallop?: number; navi?: number; kai?: number; agent?: number }
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Signed-out: a single sign-in cell in the dashboard aesthetic.
@@ -109,6 +153,7 @@ export function VaultBento() {
   const { paused, loading: agentLoading, toggle } = useAgent()
 
   const [uplift, setUplift] = useState<Uplift | null>(null)
+  const [series, setSeries] = useState<PerfPoint[]>([])
   const [walletUsdc, setWalletUsdc] = useState<{ total: number; coinId: string | null }>({ total: 0, coinId: null })
 
   // Deposit / withdraw form state
@@ -165,6 +210,22 @@ export function VaultBento() {
       dead = true
     }
   }, [address, vault?.idleUsdc])
+
+  // Append a rolling performance point each time uplift updates. Muted venue lines
+  // (scallop/navi/kai) + a bold AGENT line = uplift.bestApy (the APY the swarm captures
+  // by always chasing the best venue). Capped to the last ~40 points.
+  useEffect(() => {
+    if (!uplift) return
+    const byKey = new Map(uplift.venues.map((v) => [v.key, v.apy]))
+    const point: PerfPoint = {
+      t: Date.now(),
+      scallop: byKey.get("scallop"),
+      navi: byKey.get("navi"),
+      kai: byKey.get("kai"),
+      agent: uplift.bestApy,
+    }
+    setSeries((prev) => [...prev, point].slice(-40))
+  }, [uplift])
 
   // Read the user's spendable USDC coins client-side so deposit needs only an amount.
   const loadWalletUsdc = useCallback(async () => {
@@ -299,251 +360,284 @@ export function VaultBento() {
 
   const disableAll = busy || loading
 
-  // ── Signed in, vault exists — the bento ──
+  const holding = uplift?.best || vault?.position?.venue || "—"
+
+  // ── Signed in, vault exists — MISSION CONTROL ──
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      {/* Idle balance — hero cell */}
-      <Cell title="// VAULT BALANCE" className="col-span-2 lg:col-span-2">
-        <div className="flex items-end justify-between">
-          <div>
-            <div className="font-pixel text-5xl leading-none text-accent">{fmtUsdc(idle)}</div>
-            <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">idle USDC</div>
-          </div>
-          <div className="text-right">
-            <div className="font-pixel text-2xl leading-none">{fmtUsdc(vault?.principal)}</div>
-            <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">principal</div>
-          </div>
-        </div>
-        {vault?.position && (
-          <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
-            <span className="h-1.5 w-1.5 animate-blink bg-accent" />
-            <span className="font-mono text-xs text-foreground">
-              {fmtUsdc(vault.position.deployed)} deployed in {vault.position.venue}
-            </span>
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">· earning</span>
-          </div>
-        )}
-      </Cell>
-
-      {/* Agent status + toggle */}
-      <Cell title="// AGENT" className="col-span-1">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <span className={`h-2 w-2 ${paused ? "bg-amber-400" : "animate-blink bg-accent"}`} />
-            <span className="font-pixel text-lg">{paused ? "PAUSED" : "RUNNING"}</span>
-          </div>
-          <button
-            onClick={toggle}
-            disabled={agentLoading}
-            className={`border-2 px-4 py-1.5 text-[11px] uppercase tracking-widest transition-colors disabled:opacity-40 ${
-              paused
-                ? "border-accent text-accent hover:bg-accent hover:text-background"
-                : "border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-background"
-            }`}
-          >
-            {agentLoading ? "…" : paused ? "Start" : "Stop"}
-          </button>
-        </div>
-      </Cell>
-
-      {/* Policy */}
-      <Cell title="// POLICY" className="col-span-1">
-        <div className="flex flex-col gap-3">
-          <div>
-            <div className={`font-pixel text-lg ${vault?.revoked ? "text-red-400" : "text-accent"}`}>
-              {vault?.revoked ? "REVOKED" : "ACTIVE"}
+    <div className="grid gap-4 lg:grid-cols-5">
+      {/* ══ LEFT: performance line chart (hero) ══ */}
+      <Cell
+        title="// PERFORMANCE — AGENT vs VENUES"
+        className="lg:col-span-3"
+        bodyClass="flex h-full flex-col p-4"
+      >
+        <p className="mb-3 text-[10px] uppercase tracking-widest text-muted-foreground">
+          agent tracks the best venue · currently holding{" "}
+          <span className="text-accent">{holding}</span>
+        </p>
+        <div className="min-h-[280px] flex-1">
+          {series.length < 2 ? (
+            <div className="flex h-full min-h-[280px] items-center justify-center text-center text-[10px] uppercase tracking-widest text-muted-foreground">
+              collecting live data…
             </div>
-            <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">status</div>
-          </div>
-          <div>
-            <div className="font-mono text-sm">{fmtUsdc(vault?.remainingBudget)} USDC</div>
-            <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">budget left</div>
-          </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%" minHeight={280}>
+              <LineChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+                <CartesianGrid stroke={GRID} vertical={false} />
+                <XAxis dataKey="t" hide />
+                <YAxis
+                  stroke={GRID}
+                  tick={{ fill: TICK, fontSize: 10, fontFamily: "var(--font-mono)" }}
+                  tickFormatter={(v: number) => `${v.toFixed(1)}`}
+                  width={40}
+                  unit="%"
+                />
+                <Tooltip content={<PerfTip />} cursor={{ stroke: ACCENT, strokeOpacity: 0.3 }} />
+                <Legend
+                  wrapperStyle={{
+                    fontSize: 10,
+                    fontFamily: "var(--font-mono)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="scallop"
+                  name="scallop"
+                  stroke={VENUE_COLORS.scallop}
+                  strokeWidth={1}
+                  dot={false}
+                  connectNulls
+                  isAnimationActive={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="navi"
+                  name="navi"
+                  stroke={VENUE_COLORS.navi}
+                  strokeWidth={1}
+                  dot={false}
+                  connectNulls
+                  isAnimationActive={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="kai"
+                  name="kai"
+                  stroke={VENUE_COLORS.kai}
+                  strokeWidth={1}
+                  dot={false}
+                  connectNulls
+                  isAnimationActive={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="agent"
+                  name="agent"
+                  stroke={ACCENT}
+                  strokeWidth={2.5}
+                  dot={{ fill: ACCENT, r: 2 }}
+                  activeDot={{ r: 4, fill: ACCENT, stroke: "transparent" }}
+                  connectNulls
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </Cell>
 
-      {/* Yield uplift */}
-      <Cell title="// YIELD UPLIFT" className="col-span-2">
-        {uplift ? (
+      {/* ══ RIGHT: compact control stack ══ */}
+      <div className="flex flex-col gap-3 lg:col-span-2">
+        {/* Balance */}
+        <Cell title="// VAULT BALANCE" bodyClass="p-4">
           <div className="flex items-end justify-between">
             <div>
-              <div className="font-pixel text-4xl leading-none text-accent">
-                {uplift.upliftPct >= 0 ? "+" : ""}
-                {uplift.upliftPct.toFixed(2)}
-                <span className="text-lg text-muted-foreground"> pp</span>
-              </div>
-              <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-                vs a single venue{" "}
-                <span className="text-amber-400">{uplift.projected ? "· projected" : ""}</span>
-              </div>
+              <div className="font-pixel text-4xl leading-none text-accent">{fmtUsdc(idle)}</div>
+              <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">idle USDC</div>
             </div>
             <div className="text-right">
-              <div className="font-mono text-sm text-foreground">
-                {uplift.upliftUsdPerYear > 0 ? `~$${uplift.upliftUsdPerYear.toFixed(2)}/yr` : "deposit to see $"}
-              </div>
-              <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
-                best {uplift.best || "—"} · {uplift.bestApy?.toFixed(2)}%
-              </div>
+              <div className="font-pixel text-xl leading-none">{fmtUsdc(vault?.principal)}</div>
+              <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">principal</div>
             </div>
           </div>
-        ) : (
-          <div className="text-xs text-muted-foreground">loading analytics…</div>
-        )}
-      </Cell>
-
-      {/* Wallet address */}
-      <Cell title="// WALLET" className="col-span-2 lg:col-span-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <code className="block truncate font-mono text-xs text-foreground" title={address}>
-              {address}
-            </code>
-            <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground" title={email ?? ""}>
-              non-custodial · {walletUsdc.total > 0 ? `${fmtUsdc(walletUsdc.total)} USDC in wallet` : "no USDC in wallet"}
+          {vault?.position && (
+            <div className="mt-3 flex items-center gap-2 border-t border-border pt-2">
+              <span className="h-1.5 w-1.5 animate-blink bg-accent" />
+              <span className="font-mono text-[11px] text-foreground">
+                {fmtUsdc(vault.position.deployed)} in {vault.position.venue}
+              </span>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">· earning</span>
             </div>
-          </div>
-          <button
-            onClick={async () => {
-              await fetch("/api/auth/logout", { method: "POST" })
-              refreshWallet()
-            }}
-            className="shrink-0 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
-          >
-            sign out
-          </button>
-        </div>
-      </Cell>
+          )}
+        </Cell>
 
-      {/* Venue APY compare */}
-      <Cell title="// LIVE VENUE APY" className="col-span-2 lg:col-span-2">
-        {uplift?.venues?.length ? (
-          <div className="flex flex-col gap-2">
-            {uplift.venues.map((v) => {
-              const max = Math.max(...uplift.venues.map((x) => x.apy), 0.01)
-              const best = v.key === uplift.best
-              return (
-                <div key={v.key} className="flex items-center gap-3">
-                  <span className="w-16 shrink-0 font-mono text-[11px] uppercase text-muted-foreground">{v.key}</span>
-                  <div className="h-3 flex-1 overflow-hidden border border-border bg-black/30">
-                    <div
-                      className={`h-full ${best ? "bg-accent" : "bg-muted-foreground/40"}`}
-                      style={{ width: `${Math.max(4, (v.apy / max) * 100)}%` }}
-                    />
-                  </div>
-                  <span className={`w-14 shrink-0 text-right font-mono text-[11px] ${best ? "text-accent" : "text-foreground"}`}>
-                    {v.apy.toFixed(2)}%
-                  </span>
+        {/* Yield uplift · Agent · Policy — tight three-row grid */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* Yield uplift */}
+          <Cell title="// UPLIFT" bodyClass="p-3">
+            {uplift ? (
+              <>
+                <div className="font-pixel text-2xl leading-none text-accent">
+                  {uplift.upliftPct >= 0 ? "+" : ""}
+                  {uplift.upliftPct.toFixed(1)}
+                  <span className="text-xs text-muted-foreground"> pp</span>
                 </div>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="text-xs text-muted-foreground">loading venues…</div>
-        )}
-      </Cell>
-
-      {/* Deposit */}
-      <Cell title="// DEPOSIT" className="col-span-1">
-        <div className="flex flex-col gap-2">
-          <input
-            type="number"
-            min="0"
-            step="any"
-            placeholder="USDC amount"
-            value={depositAmt}
-            onChange={(e) => setDepositAmt(e.target.value)}
-            disabled={disableAll}
-            className="w-full border border-border bg-black/30 px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-accent"
-          />
-          <button
-            onClick={handleDeposit}
-            disabled={disableAll}
-            className="border-2 border-accent px-3 py-1.5 text-[11px] uppercase tracking-widest text-accent transition-colors hover:bg-accent hover:text-background disabled:opacity-40"
-          >
-            {busy ? "…" : "Deposit"}
-          </button>
-          <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
-            avail: {fmtUsdc(walletUsdc.total)}
-          </span>
-        </div>
-      </Cell>
-
-      {/* Withdraw */}
-      <Cell title="// WITHDRAW" className="col-span-1">
-        <div className="flex flex-col gap-2">
-          <input
-            type="number"
-            min="0"
-            step="any"
-            placeholder="USDC amount"
-            value={withdrawAmt}
-            onChange={(e) => setWithdrawAmt(e.target.value)}
-            disabled={disableAll}
-            className="w-full border border-border bg-black/30 px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-accent"
-          />
-          <button
-            onClick={handleWithdraw}
-            disabled={disableAll}
-            className="border-2 border-border px-3 py-1.5 text-[11px] uppercase tracking-widest text-foreground transition-colors hover:bg-foreground hover:text-background disabled:opacity-40"
-          >
-            {busy ? "…" : "Withdraw"}
-          </button>
-          <span className="text-[9px] uppercase tracking-widest text-muted-foreground">idle: {fmtUsdc(idle)}</span>
-        </div>
-      </Cell>
-
-      {/* Panic */}
-      <Cell title="// EMERGENCY" className="col-span-full">
-        <div className="flex h-full flex-col justify-between gap-2">
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {panicConfirm ? "revokes policy + withdraws ALL funds" : "one-tap kill-switch"}
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePanic}
-              disabled={disableAll || !canPanic}
-              className={`px-5 py-2 text-xs font-bold uppercase tracking-widest text-white transition-colors disabled:opacity-40 ${
-                panicConfirm ? "bg-red-600 ring-2 ring-white" : "bg-red-600 hover:bg-red-500"
-              }`}
-            >
-              {busy ? "executing…" : panicConfirm ? "CONFIRM PANIC" : "PANIC"}
-            </button>
-            {panicConfirm && (
-              <button
-                onClick={() => setPanicConfirm(false)}
-                disabled={disableAll}
-                className="border border-border px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
-              >
-                cancel
-              </button>
+                <div className="mt-1 font-mono text-[10px] text-muted-foreground">
+                  {uplift.upliftUsdPerYear > 0 ? `~$${uplift.upliftUsdPerYear.toFixed(0)}/yr` : "deposit to see $"}
+                </div>
+              </>
+            ) : (
+              <div className="text-[10px] text-muted-foreground">loading…</div>
             )}
-          </div>
+          </Cell>
+
+          {/* Agent */}
+          <Cell title="// AGENT" bodyClass="p-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className={`h-2 w-2 ${paused ? "bg-amber-400" : "animate-blink bg-accent"}`} />
+                <span className="font-pixel text-sm">{paused ? "OFF" : "ON"}</span>
+              </div>
+              <button
+                onClick={toggle}
+                disabled={agentLoading}
+                className={`border-2 px-2 py-1 text-[10px] uppercase tracking-widest transition-colors disabled:opacity-40 ${
+                  paused
+                    ? "border-accent text-accent hover:bg-accent hover:text-background"
+                    : "border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-background"
+                }`}
+              >
+                {agentLoading ? "…" : paused ? "Start" : "Stop"}
+              </button>
+            </div>
+          </Cell>
+
+          {/* Policy */}
+          <Cell title="// POLICY" bodyClass="p-3">
+            <div className={`font-pixel text-sm ${vault?.revoked ? "text-red-400" : "text-accent"}`}>
+              {vault?.revoked ? "REVOKED" : "ACTIVE"}
+            </div>
+            <div className="mt-1 font-mono text-[10px] text-foreground">{fmtUsdc(vault?.remainingBudget)}</div>
+            <div className="text-[9px] uppercase tracking-widest text-muted-foreground">budget left</div>
+          </Cell>
         </div>
-      </Cell>
 
-      {/* Claude MCP connector */}
-      <Cell title="// CONNECT TO CLAUDE (MCP)" className="col-span-full">
-        <div className="flex flex-col gap-3">
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Talk to your vault from Claude. In Claude → Settings → Connectors → <span className="text-foreground">Add custom connector</span>,
-            paste the URL below and click Connect. Claude opens a Talos sign-in — approve it and you’re linked
-            (no token to copy). Then ask “how’s my vault doing?” or “pause my agent”.
-          </p>
+        {/* Deposit + Withdraw */}
+        <div className="grid grid-cols-2 gap-3">
+          <Cell title="// DEPOSIT" bodyClass="p-3">
+            <div className="flex flex-col gap-2">
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="USDC amount"
+                value={depositAmt}
+                onChange={(e) => setDepositAmt(e.target.value)}
+                disabled={disableAll}
+                className="w-full border border-border bg-black/30 px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-accent"
+              />
+              <button
+                onClick={handleDeposit}
+                disabled={disableAll}
+                className="border-2 border-accent px-3 py-1.5 text-[10px] uppercase tracking-widest text-accent transition-colors hover:bg-accent hover:text-background disabled:opacity-40"
+              >
+                {busy ? "…" : "Deposit"}
+              </button>
+              <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                avail: {fmtUsdc(walletUsdc.total)}
+              </span>
+            </div>
+          </Cell>
 
-          <div className="flex items-center gap-2">
-            <span className="w-24 shrink-0 text-[9px] uppercase tracking-widest text-muted-foreground">Connector URL</span>
-            <code className="min-w-0 flex-1 truncate border border-border bg-black/30 px-2 py-1 font-mono text-[11px] text-foreground">
+          <Cell title="// WITHDRAW" bodyClass="p-3">
+            <div className="flex flex-col gap-2">
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="USDC amount"
+                value={withdrawAmt}
+                onChange={(e) => setWithdrawAmt(e.target.value)}
+                disabled={disableAll}
+                className="w-full border border-border bg-black/30 px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-accent"
+              />
+              <button
+                onClick={handleWithdraw}
+                disabled={disableAll}
+                className="border-2 border-border px-3 py-1.5 text-[10px] uppercase tracking-widest text-foreground transition-colors hover:bg-foreground hover:text-background disabled:opacity-40"
+              >
+                {busy ? "…" : "Withdraw"}
+              </button>
+              <span className="text-[9px] uppercase tracking-widest text-muted-foreground">idle: {fmtUsdc(idle)}</span>
+            </div>
+          </Cell>
+        </div>
+
+        {/* PANIC / EMERGENCY */}
+        <Cell title="// EMERGENCY" bodyClass="p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[9px] uppercase tracking-widest text-muted-foreground">
+              {panicConfirm ? "revokes policy + withdraws ALL" : "one-tap kill-switch"}
+            </p>
+            <div className="flex items-center gap-2">
+              {panicConfirm && (
+                <button
+                  onClick={() => setPanicConfirm(false)}
+                  disabled={disableAll}
+                  className="border border-border px-2 py-1.5 text-[9px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                >
+                  cancel
+                </button>
+              )}
+              <button
+                onClick={handlePanic}
+                disabled={disableAll || !canPanic}
+                className={`px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-white transition-colors disabled:opacity-40 ${
+                  panicConfirm ? "bg-red-600 ring-2 ring-white" : "bg-red-600 hover:bg-red-500"
+                }`}
+              >
+                {busy ? "…" : panicConfirm ? "CONFIRM" : "PANIC"}
+              </button>
+            </div>
+          </div>
+        </Cell>
+
+        {/* Wallet + MCP connector */}
+        <Cell title="// WALLET · CLAUDE (MCP)" bodyClass="flex flex-col gap-3 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <code className="block truncate font-mono text-[11px] text-foreground" title={address}>
+                {trunc(address)}
+              </code>
+              <div className="mt-0.5 text-[9px] uppercase tracking-widest text-muted-foreground" title={email ?? ""}>
+                non-custodial · {walletUsdc.total > 0 ? `${fmtUsdc(walletUsdc.total)} USDC` : "no USDC"}
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                await fetch("/api/auth/logout", { method: "POST" })
+                refreshWallet()
+              }}
+              className="shrink-0 font-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+            >
+              sign out
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 border-t border-border pt-2">
+            <code className="min-w-0 flex-1 truncate border border-border bg-black/30 px-2 py-1 font-mono text-[10px] text-foreground">
               {mcpUrl}
             </code>
             <button
               onClick={() => copy("URL", mcpUrl)}
-              className="shrink-0 border-2 border-accent px-3 py-1 text-[9px] uppercase tracking-widest text-accent transition-colors hover:bg-accent hover:text-background"
+              className="shrink-0 border-2 border-accent px-2 py-1 text-[9px] uppercase tracking-widest text-accent transition-colors hover:bg-accent hover:text-background"
             >
               {copied === "URL" ? "copied" : "copy"}
             </button>
           </div>
-
-          <div className="flex items-center gap-3 pt-1">
+          <div className="flex items-center gap-3">
             <button
               onClick={revokeMcp}
               disabled={mcpBusy}
@@ -561,15 +655,15 @@ export function VaultBento() {
           </div>
 
           {showAdvanced && (
-            <div className="flex flex-col gap-2 border-t border-border pt-3">
-              <p className="text-[10px] leading-relaxed text-muted-foreground">
+            <div className="flex flex-col gap-2 border-t border-border pt-2">
+              <p className="text-[9px] leading-relaxed text-muted-foreground">
                 For API/CLI clients that accept a static bearer token (Claude web uses OAuth above, not this).
               </p>
               {!mcp ? (
                 <button
                   onClick={genMcp}
                   disabled={mcpBusy}
-                  className="w-fit border border-border px-4 py-1.5 text-[11px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                  className="w-fit border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
                 >
                   {mcpBusy ? "…" : "Generate token"}
                 </button>
@@ -580,8 +674,8 @@ export function VaultBento() {
                     { label: "Header  ·  Authorization", value: mcp.header },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex items-center gap-2">
-                      <span className="w-40 shrink-0 text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
-                      <code className="min-w-0 flex-1 truncate border border-border bg-black/30 px-2 py-1 font-mono text-[11px] text-foreground">
+                      <span className="w-32 shrink-0 text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
+                      <code className="min-w-0 flex-1 truncate border border-border bg-black/30 px-2 py-1 font-mono text-[10px] text-foreground">
                         {value}
                       </code>
                       <button
@@ -597,16 +691,16 @@ export function VaultBento() {
               )}
             </div>
           )}
-        </div>
-      </Cell>
-
-      {/* Status line */}
-      {(err || digest) && (
-        <Cell className="col-span-full" bodyClass="px-4 py-3">
-          {err && <p className="font-mono text-[11px] text-red-400">{err}</p>}
-          {digest && <TxLink digest={digest} />}
         </Cell>
-      )}
+
+        {/* Status line */}
+        {(err || digest) && (
+          <Cell bodyClass="px-3 py-2">
+            {err && <p className="font-mono text-[11px] text-red-400">{err}</p>}
+            {digest && <TxLink digest={digest} />}
+          </Cell>
+        )}
+      </div>
     </div>
   )
 }
