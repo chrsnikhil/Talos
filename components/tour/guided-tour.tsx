@@ -41,7 +41,7 @@ export function GuidedTour({
   // Pre-generated per-step voice (public/audio/tour/step-N.mp3). No live TTS.
   const [muted, setMuted] = useState(false)
   const [hasAudio, setHasAudio] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audiosRef = useRef<HTMLAudioElement[]>([])
 
   useEffect(() => {
     setMounted(true)
@@ -54,15 +54,23 @@ export function GuidedTour({
     try {
       setMuted(localStorage.getItem("talos_tour_muted") === "1")
     } catch {}
-    const a = new Audio()
-    a.preload = "auto"
-    a.addEventListener("canplay", () => setHasAudio(true))
-    audioRef.current = a
+    // Preload every clip up front so a step change never waits on a network
+    // fetch / src-swap (that was stalling the transition and feeling laggy).
+    const els = steps.map((_, n) => {
+      const a = new Audio(`/audio/tour/step-${n}.mp3`)
+      a.preload = "auto"
+      return a
+    })
+    els[0]?.addEventListener("canplay", () => setHasAudio(true), { once: true })
+    audiosRef.current = els
     return () => {
-      a.pause()
-      audioRef.current = null
+      els.forEach((a) => {
+        a.pause()
+        a.src = ""
+      })
+      audiosRef.current = []
     }
-  }, [])
+  }, [steps])
 
   // Mount the REAL demo agent once (three.js loads client-side only via
   // dynamic import); fully dispose on unmount.
@@ -94,13 +102,19 @@ export function GuidedTour({
   // Play the current step's pre-generated voice line (autoplay can be blocked
   // before a gesture — swallow it; audio kicks in from the first Continue click).
   useEffect(() => {
-    const a = audioRef.current
-    if (!a) return
-    a.pause()
-    a.currentTime = 0
-    if (muted) return
-    a.src = `/audio/tour/step-${i}.mp3`
-    a.play().catch(() => {})
+    const els = audiosRef.current
+    if (!els.length) return
+    els.forEach((a, n) => {
+      if (n !== i) a.pause()
+    })
+    const cur = els[i]
+    if (!cur) return
+    cur.currentTime = 0
+    if (muted) {
+      cur.pause()
+      return
+    }
+    cur.play().catch(() => {})
   }, [i, muted])
 
   const toggleMute = useCallback(() => {
