@@ -31,7 +31,7 @@ export interface VenuesFetchResult {
 
 /**
  * Fetches live USDC supply APYs for Sui venues from DeFiLlama.
- * Falls back to hardcoded values on error or insufficient data.
+ * Falls back to cached default values on error or insufficient data.
  */
 export async function fetchVenueApys(): Promise<VenuesFetchResult> {
   const ts = new Date().toISOString();

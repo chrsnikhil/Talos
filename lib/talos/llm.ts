@@ -11,10 +11,10 @@
 export type Provider = "groq" | "mistral" | "claude" | "none"
 export type LLMInfo = { provider: Provider; model: string }
 
-// Claude path uses a Talos-specific key, NOT the generic ANTHROPIC_API_KEY: the host
-// (e.g. Claude Code) often injects an ambient ANTHROPIC_API_KEY that isn't a usable raw
-// API key, which would otherwise mislabel the brain as "claude" while every call quietly
-// fell back to the heuristic. Requiring TALOS_ANTHROPIC_API_KEY makes the choice explicit.
+// Claude path uses a Talos-specific key (TALOS_ANTHROPIC_API_KEY), NOT the generic
+// ANTHROPIC_API_KEY: an ambient ANTHROPIC_API_KEY in the environment may not be a usable
+// raw API key, which would otherwise mislabel the brain as "claude" while every call
+// quietly fell back to the heuristic. Requiring the Talos-specific var makes it explicit.
 function groqKey() {
   return process.env.GROQ_API_KEY
 }

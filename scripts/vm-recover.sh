@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# One-shot recovery for the botched deploy: strip garbage lines the broken env-upsert
-# appended to .env.local, run the install+build that never ran, and restart.
+# One-shot recovery: clean up any stray lines a failed env-upsert appended to .env.local,
+# run the install+build if it did not complete, and restart.
 set -e
 cd ~/Talos
 

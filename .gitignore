@@ -15,3 +15,9 @@ node_modules
 # private keys / keystores — never commit
 *.key
 *.keystore
+
+# never commit run/debug logs
+*.log
+
+# internal dev artifacts (screenshots, agent reports)
+.superpowers/
