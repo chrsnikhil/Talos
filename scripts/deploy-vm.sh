@@ -13,10 +13,12 @@ set -euo pipefail
 
 VM="azureuser@20.219.20.139"
 FQDN="talos-swarm-b0f6db.centralindia.cloudapp.azure.com"
-# Public app origin used for APP_URL (OAuth issuer/redirect, MCP metadata). Defaults to
-# the Azure hostname; after the custom-domain cutover (scripts/flip-domain.sh) run deploys
-# with TALOS_APP_DOMAIN=talosfi.xyz so APP_URL is not reverted to the Azure host.
-APP_DOMAIN="${TALOS_APP_DOMAIN:-$FQDN}"
+# Public app origin used for APP_URL (OAuth issuer/redirect, MCP metadata). The custom-domain
+# cutover is DONE, so this defaults to the production domain talosfi.xyz. If it defaulted to
+# the Azure host, a plain `deploy-vm.sh web` would revert APP_URL and break Google sign-in
+# (redirect_uri_mismatch — the Azure callback isn't registered in the OAuth client). Override
+# with TALOS_APP_DOMAIN=... only when deliberately pointing APP_URL elsewhere.
+APP_DOMAIN="${TALOS_APP_DOMAIN:-talosfi.xyz}"
 V2_PKG="0x9c49978732d2e8cb38f0744f825bc1d5431f34582811bfef6b099c785a22031f"
 MODE="${1:-all}"
 LOCAL="$(cd "$(dirname "$0")/.." && pwd)"

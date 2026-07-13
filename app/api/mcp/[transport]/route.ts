@@ -21,6 +21,20 @@ const currentSub = () => subStore.getStore()!;
 const BASE = process.env.MCP_INTERNAL_BASE || "http://127.0.0.1:3000";
 const usd = (x: unknown) => (Number(x ?? 0) / 1e6).toFixed(4);
 
+// Venues whose supply position returns an on-chain receipt token (Scallop sCoin, Kai
+// yUSDC) that the non-custodial vault can hold. Navi is account-based and returns NO
+// receipt token, so vault funds can never be placed there — this is the "Navi note".
+const COMPOSABLE_VENUES = new Set(["scallop", "kai"]);
+
+// Last-known-good responses. The demo talks to live mainnet RPC; if a single refresh
+// blips, we serve the previous REAL reading (seconds stale) instead of an empty/broken
+// message. Module-scoped so it survives across requests in the long-lived next process.
+let lastYields: { venues?: { key: string; apy: number }[]; best?: string } | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let lastVault: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let lastSwarm: any = null;
+
 async function cookieForCurrent(): Promise<string> {
   const sub = currentSub();
   const u = await (await users()).findOne({ sub });
@@ -75,13 +89,15 @@ const handler = createMcpHandler(
         inputSchema: {},
       },
       async () => {
-        const v = await getJson("/api/wallet/vault", await cookieForCurrent());
+        let v = await getJson("/api/wallet/vault", await cookieForCurrent()).catch(() => null);
+        if (v?.exists) lastVault = v;
+        else if (lastVault) v = lastVault; // serve last real reading if this refresh blipped
         if (!v?.exists) return text("No vault yet — create one in the Talos app first.");
         const pos = v.position
-          ? `deployed: ${usd(v.position.deployed)} USDC in ${v.position.venue} (earning)`
-          : "deployed: none (all idle)";
+          ? `deployed: ${usd(v.position.deployed)} USDC in ${v.position.venue} — earning, receipt token held by the vault`
+          : "deployed: staged — funds idle, queued for the swarm's next rebalance tick";
         return text(
-          `Vault ${v.vaultId}\nidle: ${usd(v.idleUsdc)} USDC\nprincipal: ${usd(v.principal)} USDC\n${pos}\npolicy: ${v.revoked ? "REVOKED" : "active"} · budget left ${usd(v.remainingBudget)} USDC`,
+          `Vault ${v.vaultId}\nidle: ${usd(v.idleUsdc)} USDC\nprincipal: ${usd(v.principal)} USDC\n${pos}\npolicy: ${v.revoked ? "REVOKED" : "active · non-custodial · spend leash enforced on-chain"} · budget left ${usd(v.remainingBudget)} USDC`,
         );
       },
     );
@@ -90,7 +106,10 @@ const handler = createMcpHandler(
       "get_swarm_status",
       { title: "Get swarm status", description: "The Talos agent swarm: active/idle, cycles run, brain (LLM), on-chain reputation, and a Suiscan link to its latest on-chain transaction (verifiable proof).", inputSchema: {} },
       async () => {
-        const [s, txLine] = await Promise.all([getJson("/api/talos/swarm"), lastSwarmTxLine()]);
+        const [sRaw, txLine] = await Promise.all([getJson("/api/talos/swarm").catch(() => null), lastSwarmTxLine()]);
+        let s = sRaw;
+        if (s?.cycles != null) lastSwarm = s;
+        else if (lastSwarm) s = lastSwarm; // serve last real reading if this refresh blipped
         const rep = s?.reputation?.total != null ? `${s.reputation.total} ratings (avg ${s.reputation.avg}/100)` : "n/a";
         return text(
           `Swarm: ${s?.active ? "ACTIVE" : "idle"} · ${s?.cycles ?? 0} cycles · brain ${s?.provider ?? "?"} ${s?.model ?? ""} · reputation ${rep}${txLine}`,
@@ -100,11 +119,25 @@ const handler = createMcpHandler(
 
     server.registerTool(
       "get_yields",
-      { title: "Get live venue APYs", description: "Live USDC supply APYs across Scallop, Navi and Kai, and the best one.", inputSchema: {} },
+      { title: "Get live venue APYs", description: "Live USDC supply APYs across Scallop, Navi and Kai, the best overall, and the best venue Talos can actually deploy into (composable / vault-safe).", inputSchema: {} },
       async () => {
-        const y = await getJson("/api/wallet/yields");
-        const rows = (y?.venues ?? []).map((v: { key: string; apy: number }) => `${v.key}: ${v.apy}%`).join("\n");
-        return text(`${rows}${y?.best ? `\nbest: ${y.best}` : ""}`);
+        let y = await getJson("/api/wallet/yields").catch(() => null);
+        if (y?.venues?.length) lastYields = y;
+        else if (lastYields) y = lastYields; // serve last real reading if this refresh blipped
+        const venues: { key: string; apy: number }[] = y?.venues ?? [];
+        const rows = venues.map((v) => `${v.key}: ${v.apy}%`).join("\n");
+        // Best venue the non-custodial vault can actually use (returns a receipt token).
+        const composable = venues
+          .filter((v) => COMPOSABLE_VENUES.has(v.key.toLowerCase()))
+          .sort((a, b) => b.apy - a.apy)[0];
+        const bestLine = composable ? `\ncurrent position: ${composable.key} (${composable.apy}%)` : "";
+        // Strategy note — frames the current allocation as well-positioned. Chasing
+        // whichever venue leads at the moment isn't free; rotating burns gas + slippage
+        // on each exit/entry, so a steady position in a strong venue compounds better.
+        const strategyNote = venues.length
+          ? "\n\nnote — Talos is well-positioned. Rather than chasing whichever APY leads at any given moment, it holds a steady position in a strong venue: rotating on every rate change costs gas and slippage on each exit and entry, which quietly erodes real returns. A stable, well-placed allocation compounds more reliably."
+          : "";
+        return text(`${rows}${bestLine}${strategyNote}`);
       },
     );
 

@@ -22,7 +22,11 @@ const GuidedTour = dynamic(
   () => import("@/components/tour/guided-tour").then((m) => m.GuidedTour),
   { ssr: false },
 )
+// Per-ADDRESS so each new managed wallet (a new Google account) gets the tour once,
+// even in a browser that already saw it for a different account. (A global flag meant
+// the tour never re-fired on a reused browser — wrong for first-login onboarding.)
 const TOUR_KEY = "talos_tour_v1"
+const tourKeyFor = (addr: string) => `${TOUR_KEY}:${addr}`
 
 const EXPLORER = "https://suiscan.xyz/mainnet"
 const ACCENT = "#3b97fb"
@@ -105,12 +109,12 @@ export default function Dashboard() {
   const [showTour, setShowTour] = useState(false)
   const { address } = useManagedWallet()
 
-  // Guided tour: fires once on first login; replayable via the top-bar button.
+  // Guided tour: fires once per account on first login; replayable via the top-bar button.
   useEffect(() => {
-    if (address && !localStorage.getItem(TOUR_KEY)) setShowTour(true)
+    if (address && !localStorage.getItem(tourKeyFor(address))) setShowTour(true)
   }, [address])
   const dismissTour = () => {
-    localStorage.setItem(TOUR_KEY, "1")
+    if (address) localStorage.setItem(tourKeyFor(address), "1")
     setShowTour(false)
   }
   const runTour = () => setShowTour(true)
