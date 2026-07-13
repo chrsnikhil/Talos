@@ -42,7 +42,14 @@ export function llmInfo(): LLMInfo {
 }
 
 function extractJson(text: string): any | null {
-  const m = text.match(/\{[\s\S]*\}/)
+  if (!text) return null
+  // Strip any leaked reasoning blocks / code fences before grabbing the JSON, then take
+  // the outermost {...}. (With reasoning_format:"hidden" the content is already clean JSON,
+  // but this keeps us robust if a provider ever inlines a <think> block or a code fence.)
+  const cleaned = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/```(?:json)?/gi, "")
+  const m = cleaned.match(/\{[\s\S]*\}/)
   if (!m) return null
   try {
     return JSON.parse(m[0])
@@ -71,15 +78,35 @@ export async function thinkJson(prompt: string, maxTokens = 300): Promise<any | 
             ? "https://api.groq.com/openai/v1/chat/completions"
             : "https://api.mistral.ai/v1/chat/completions"
         const key = provider === "groq" ? groqKey() : mistralKey()
+        const body: any = {
+          model,
+          // gpt-oss reasoning tokens are verbose; give the completion room so the JSON
+          // that follows the reasoning is never truncated (truncated JSON = parse fail).
+          max_tokens: Math.max(maxTokens, provider === "groq" ? 1200 : maxTokens),
+          messages: [
+            {
+              role: "system",
+              content:
+                "Respond with ONLY a single minified JSON object that matches the requested shape. No prose, no explanation, no markdown, no code fences — just the JSON object.",
+            },
+            { role: "user", content: prompt },
+          ],
+        }
+        if (provider === "groq") {
+          // gpt-oss is a REASONING model: strict `response_format: json_object` makes Groq
+          // reject its output (json_validate_failed, HTTP 400) because reasoning breaks the
+          // validator. Instead keep reasoning OUT of the content (hidden) and brief (low
+          // effort) so `content` is clean JSON that extractJson parses. No response_format.
+          body.reasoning_effort = "low"
+          body.reasoning_format = "hidden"
+        } else {
+          // Mistral is not a reasoning model — strict JSON mode is reliable there.
+          body.response_format = { type: "json_object" }
+        }
         const r = await fetch(url, {
           method: "POST",
           headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-          body: JSON.stringify({
-            model,
-            max_tokens: maxTokens,
-            response_format: { type: "json_object" },
-            messages: [{ role: "user", content: prompt }],
-          }),
+          body: JSON.stringify(body),
         })
         if (r.status === 429 || r.status >= 500) return { text: null, retry: true }
         const j: any = await r.json()
