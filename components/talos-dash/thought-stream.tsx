@@ -124,6 +124,13 @@ function venueClass(protocol: string, target?: string, holding?: string | null, 
   return "border-border text-muted-foreground"
 }
 
+// Per-vault decisions are deterministic structural constraints ("fully positioned",
+// "idle below min supply") — tagged `heuristic` in the feed but really *vault rules*, not
+// LLM guesses. Relabel them so the stream reads as the AI executor's market calls (groq) +
+// the vaults enforcing their own rules, instead of a wall of "heuristic".
+const isVaultRule = (d: Decision) => typeof d.reasoning === "string" && d.reasoning.trimStart().startsWith("[vault")
+const brainLabel = (d: Decision) => (isVaultRule(d) ? "vault rule" : d.by)
+
 function IcarusCard({ d, holding, fresh, onOpen }: { d: Decision; holding: string | null; fresh: boolean; onOpen: () => void }) {
   const rebalance = d.action === "REBALANCE"
   const best = [...(d.apys ?? [])].sort((a: Apy, b: Apy) => b.apy - a.apy)[0]?.protocol
@@ -136,14 +143,14 @@ function IcarusCard({ d, holding, fresh, onOpen }: { d: Decision; holding: strin
         {rebalance && (
           <span className="shrink-0 text-sm font-semibold uppercase tracking-wide text-accent">{d.amount} · {d.from} → {d.target}</span>
         )}
-        <span className="ml-auto shrink-0 rounded-sm border border-border px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">{d.by}</span>
+        <span className={`ml-auto shrink-0 rounded-sm border px-2 py-1 text-[11px] uppercase tracking-wider ${brainLabel(d) === "groq" ? "border-accent/60 text-accent" : "border-border text-muted-foreground"}`}>{brainLabel(d)}</span>
         <span className="shrink-0 text-xs uppercase tracking-widest text-muted-foreground">{ago(Date.parse(d.ts))}</span>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
         {(d.apys ?? []).map((a) => (
           <span key={a.protocol} className={`rounded-sm border-2 px-3 py-1.5 text-sm font-medium uppercase tracking-wide ${venueClass(a.protocol, d.target, holding, best)}`}>
-            {a.protocol} {a.apy}%{a.protocol === d.target ? " ◀ moved" : holding && a.protocol === holding ? " · holding" : ""}
+            {a.protocol} {a.apy}%{a.protocol === d.target ? (rebalance ? " ◀ moved" : " · holding") : holding && a.protocol === holding ? " · holding" : ""}
           </span>
         ))}
       </div>
@@ -209,7 +216,7 @@ function DecisionModal({ d, holding, onClose }: { d: Decision; holding: string |
         <div className="max-h-[70vh] overflow-y-auto no-scrollbar px-6 py-4">
           <Row k="action" v={<span className={d.action === "REBALANCE" ? "text-accent" : ""}>{d.action}</span>} />
           {d.action === "REBALANCE" && <Row k="move" v={`${d.amount} · ${d.from} → ${d.target}`} />}
-          <Row k="decided by" v={d.by} />
+          <Row k="decided by" v={brainLabel(d)} />
           <Row k="at" v={new Date(Date.parse(d.ts)).toLocaleString()} />
           {holding && <Row k="now holding" v={<span className="text-emerald-300">{holding}</span>} />}
           <div className="py-3">
