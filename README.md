@@ -6,7 +6,9 @@ Talos is a swarm of two autonomous AI agents that manage real USDC on **Sui main
 
 **Live dashboard:** [talosfi.xyz](https://talosfi.xyz) · **Demo:** [youtu.be/taoUTY0VOmM](https://youtu.be/taoUTY0VOmM) · **Track:** Sui Overflow 2026, Agentic Web
 
-[![Watch the TALOS demo](https://img.youtube.com/vi/taoUTY0VOmM/maxresdefault.jpg)](https://youtu.be/taoUTY0VOmM)
+https://github.com/user-attachments/assets/a38619a1-cd92-49a0-9ba1-c35a542ba3bb
+
+▶ *Demo plays inline above. For HD + narration, [watch on YouTube](https://youtu.be/taoUTY0VOmM).*
 
 > **Running live on Sui mainnet right now.** Don't take our word for it — the agent's address has **thousands of verifiable transactions** and the critic has written **hundreds of independent on-chain ratings**. Every number below is clickable on Suiscan.
 
