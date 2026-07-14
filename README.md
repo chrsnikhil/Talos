@@ -4,9 +4,11 @@
 
 Talos is a swarm of two autonomous AI agents that manage real USDC on **Sui mainnet** under an on-chain policy they physically cannot break, with a second agent independently grading every decision on-chain.
 
-**Live dashboard:** https://talos-swarm-d8b4e2.centralindia.cloudapp.azure.com/
-· **Demo video:** https://www.youtube.com/watch?v=LUMQi-ISaKs
-· **Track:** Sui Overflow 2026, Agentic Web
+**Live dashboard:** [talosfi.xyz](https://talosfi.xyz) · **Demo:** [youtu.be/taoUTY0VOmM](https://youtu.be/taoUTY0VOmM) · **Track:** Sui Overflow 2026, Agentic Web
+
+[![Watch the TALOS demo](https://img.youtube.com/vi/taoUTY0VOmM/maxresdefault.jpg)](https://youtu.be/taoUTY0VOmM)
+
+> **Running live on Sui mainnet right now.** Don't take our word for it — the agent's address has **thousands of verifiable transactions** and the critic has written **hundreds of independent on-chain ratings**. Every number below is clickable on Suiscan.
 
 ---
 
@@ -45,13 +47,15 @@ This is a custom on-chain system, not a wrapper around an RPC:
 
 | Artifact | Address |
 | --- | --- |
-| Package (`agent_policy` + `reputation`) | [`0x75b7f5d2926f333d8849726655904111420d4f86acb2578274b31338bcf8142c`](https://suiscan.xyz/mainnet/object/0x75b7f5d2926f333d8849726655904111420d4f86acb2578274b31338bcf8142c) |
+| Package v2 (`agent_policy` + `vault` + `reputation`) | [`0x9c49978732d2e8cb38f0744f825bc1d5431f34582811bfef6b099c785a22031f`](https://suiscan.xyz/mainnet/object/0x9c49978732d2e8cb38f0744f825bc1d5431f34582811bfef6b099c785a22031f) |
 | AgentPolicy (the on-chain leash) | [`0x16d5c0c966ac8d78992908ada307dc5991fc76ce4915ae499fa91cfe11c1b5b6`](https://suiscan.xyz/mainnet/object/0x16d5c0c966ac8d78992908ada307dc5991fc76ce4915ae499fa91cfe11c1b5b6) |
-| Reputation ledger | [`0x3928f7b3ab4114a44b0f533ed627c247994894985c91cf05464ab36d161f072a`](https://suiscan.xyz/mainnet/object/0x3928f7b3ab4114a44b0f533ed627c247994894985c91cf05464ab36d161f072a) |
-| Icarus (executor) | [`0x1f0455e5fb79711dff710e04aa9a7ea4dbb582b77a3a5452fcc61be1cb80ea7f`](https://suiscan.xyz/mainnet/account/0x1f0455e5fb79711dff710e04aa9a7ea4dbb582b77a3a5452fcc61be1cb80ea7f) |
-| Daedalus (critic) | [`0x4f11c87bbd643a06ff73b88fc10faff62d47142dc0edf5ae3783bcc0ded9f2ea`](https://suiscan.xyz/mainnet/account/0x4f11c87bbd643a06ff73b88fc10faff62d47142dc0edf5ae3783bcc0ded9f2ea) |
+| Reputation ledger (live) | [`0xe6e4df9f579897f5564f0dc5a3cff9b33263ab0ddb121ac31fd402e7f1eb2a13`](https://suiscan.xyz/mainnet/object/0xe6e4df9f579897f5564f0dc5a3cff9b33263ab0ddb121ac31fd402e7f1eb2a13) |
+| Icarus — executor key | [`0x1f0455e5fb79711dff710e04aa9a7ea4dbb582b77a3a5452fcc61be1cb80ea7f`](https://suiscan.xyz/mainnet/account/0x1f0455e5fb79711dff710e04aa9a7ea4dbb582b77a3a5452fcc61be1cb80ea7f) |
+| Daedalus — critic key (**separate** from the executor) | [`0xcfedac7e763a82f0aada2960d07ac13d0418a948a26173577e271bf4e9be8148`](https://suiscan.xyz/mainnet/account/0xcfedac7e763a82f0aada2960d07ac13d0418a948a26173577e271bf4e9be8148) |
 
-Browse any of these on [Suiscan](https://suiscan.xyz/mainnet). A rebalance is signed by Icarus; its rating is signed by Daedalus. The two are different keys, so the independent critique is verifiable, not just claimed.
+Browse any of these on [Suiscan](https://suiscan.xyz/mainnet). **A rebalance is signed by Icarus's key; its rating is signed by Daedalus's — two different addresses — so the independent critique is verifiable on-chain, not just claimed.** (`submit_rating` in `reputation.move` asserts the sender is the ledger's designated critic, so a rating cannot be forged.)
+
+> **Migration note.** Talos originally ran with critic key [`0x4f11c87b…`](https://suiscan.xyz/mainnet/account/0x4f11c87bbd643a06ff73b88fc10faff62d47142dc0edf5ae3783bcc0ded9f2ea) writing to reputation ledger [`0x3928f7b3…`](https://suiscan.xyz/mainnet/object/0x3928f7b3ab4114a44b0f533ed627c247994894985c91cf05464ab36d161f072a) — **412 critic-signed ratings, still on-chain and still verifiable.** When the deployment moved hosts, the critic identity was rotated to a fresh separate key (`0xcfedac7e…`) writing to a new ledger (`0xe6e4df9f…`), which the live swarm uses today. The two-key separation has held across both deployments.
 
 ## Stack
 
