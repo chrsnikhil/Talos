@@ -66,13 +66,32 @@ function ago(ms: number): string {
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
 }
-/** The swarm's latest on-chain action as an explorer link, or "" if none/unavailable. */
-async function lastSwarmTxLine(): Promise<string> {
+/**
+ * The swarm's most recent concrete on-chain actions, each as a verifiable Suiscan
+ * link: the last REBALANCE (a `SpendAuthorized` event — amount + venue the leash
+ * authorized) and the last CRITIC RATING (a `CriticRating` event — score, verdict,
+ * running average). Returns "" for anything unavailable so status never breaks.
+ */
+async function recentActivityLines(): Promise<string> {
   try {
     const act = await getJson("/api/talos/activity");
-    const last = Array.isArray(act?.events) ? act.events[0] : null;
-    if (!last?.tx) return "";
-    return `\nlatest on-chain tx: ${last.type}${last.timestampMs ? ` · ${ago(last.timestampMs)}` : ""} · ${EXPLORER_TX}${last.tx}`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const events: any[] = Array.isArray(act?.events) ? act.events : [];
+    const reb = events.find((e) => e?.type === "SpendAuthorized");
+    const rat = events.find((e) => e?.type === "CriticRating");
+    let out = "";
+    if (reb?.tx) {
+      // `amount` is the policy's authorized spend unit (the same "REBALANCE 100 → navi"
+      // figure the swarm logs and dashboard show), NOT USDC micro-units — don't scale it.
+      const proto = reb.data?.protocol ?? "?";
+      out += `\nlast rebalance: authorized ${reb.data?.amount} → ${proto}${reb.timestampMs ? ` · ${ago(reb.timestampMs)}` : ""} · ${EXPLORER_TX}${reb.tx}`;
+    }
+    if (rat?.tx) {
+      const verdict = rat.data?.verdict ? ` — "${rat.data.verdict}"` : "";
+      const avg = rat.data?.avg_x100 != null ? ` · running avg ${(Number(rat.data.avg_x100) / 100).toFixed(2)}/100` : "";
+      out += `\nlast critic rating: ${rat.data?.score}/100${verdict}${avg}${rat.timestampMs ? ` · ${ago(rat.timestampMs)}` : ""} · ${EXPLORER_TX}${rat.tx}`;
+    }
+    return out;
   } catch {
     return "";
   }
@@ -104,15 +123,15 @@ const handler = createMcpHandler(
 
     server.registerTool(
       "get_swarm_status",
-      { title: "Get swarm status", description: "The Talos agent swarm: active/idle, cycles run, brain (LLM), on-chain reputation, and a Suiscan link to its latest on-chain transaction (verifiable proof).", inputSchema: {} },
+      { title: "Get swarm status", description: "The Talos agent swarm: active/idle, cycles run, brain (LLM), on-chain reputation, plus its last rebalance and last critic rating — each a verifiable Suiscan link.", inputSchema: {} },
       async () => {
-        const [sRaw, txLine] = await Promise.all([getJson("/api/talos/swarm").catch(() => null), lastSwarmTxLine()]);
+        const [sRaw, actLines] = await Promise.all([getJson("/api/talos/swarm").catch(() => null), recentActivityLines()]);
         let s = sRaw;
         if (s?.cycles != null) lastSwarm = s;
         else if (lastSwarm) s = lastSwarm; // serve last real reading if this refresh blipped
         const rep = s?.reputation?.total != null ? `${s.reputation.total} ratings (avg ${s.reputation.avg}/100)` : "n/a";
         return text(
-          `Swarm: ${s?.active ? "ACTIVE" : "idle"} · ${s?.cycles ?? 0} cycles · brain ${s?.provider ?? "?"} ${s?.model ?? ""} · reputation ${rep}${txLine}`,
+          `Swarm: ${s?.active ? "ACTIVE" : "idle"} · ${s?.cycles ?? 0} cycles · brain ${s?.provider ?? "?"} ${s?.model ?? ""} · reputation ${rep}${actLines}`,
         );
       },
     );
