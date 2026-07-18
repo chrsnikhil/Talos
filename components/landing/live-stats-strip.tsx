@@ -15,14 +15,19 @@ interface SwarmData {
 interface ReputationData {
   total?: number
   avg?: number
+  lifetimeTotal?: number
+  lifetimeAvg?: number
+}
+interface TxCountData {
+  total?: number
 }
 
-const ACCENT = "var(--accent-color)"
 const COLOR = {
   cycles: "#3b97fb",
   ratings: "#22c55e",
   avg: "#a855f7",
   venue: "#f59e0b",
+  tx: "#e0703a",
   meta: "#9ca3af",
 } as const
 
@@ -166,9 +171,10 @@ function HeroCell({ cycles }: { cycles: number }) {
 }
 
 export function LiveStatsStrip() {
-  const [cycles, setCycles] = useState<number>(7600)
-  const [ratings, setRatings] = useState<number>(262)
-  const [avg, setAvg] = useState<number>(88.7)
+  const [cycles, setCycles] = useState<number>(18000)
+  const [ratings, setRatings] = useState<number>(662)
+  const [avg, setAvg] = useState<number>(82.1)
+  const [txCount, setTxCount] = useState<number>(4558)
 
   useEffect(() => {
     let cancelled = false
@@ -188,9 +194,20 @@ export function LiveStatsStrip() {
         const repRes = await fetch("/api/talos/reputation", { cache: "no-store" })
         const repJson: ReputationData = await repRes.json()
         if (!cancelled) {
-          if (typeof repJson?.total === "number") setRatings(repJson.total)
-          if (typeof repJson?.avg === "number") setAvg(repJson.avg)
+          // Prefer lifetime (both critic keys) so it matches the README / cards figure.
+          const total = repJson?.lifetimeTotal ?? repJson?.total
+          const a = repJson?.lifetimeAvg ?? repJson?.avg
+          if (typeof total === "number") setRatings(total)
+          if (typeof a === "number") setAvg(a)
         }
+      } catch {
+        /* use fallback */
+      }
+
+      try {
+        const txRes = await fetch("/api/talos/txcount", { cache: "no-store" })
+        const txJson: TxCountData = await txRes.json()
+        if (!cancelled && typeof txJson?.total === "number") setTxCount(txJson.total)
       } catch {
         /* use fallback */
       }
@@ -250,11 +267,11 @@ export function LiveStatsStrip() {
             index={3}
           />
           <Cell
-            color={COLOR.meta}
-            sponsor="NETWORK"
-            value="SUI"
-            label="NETWORK"
-            sub="SUI MAINNET · live rebalances"
+            color={COLOR.tx}
+            sponsor="ON-CHAIN · VERIFIABLE"
+            value={fmt(txCount)}
+            label="TOTAL ON-CHAIN TX"
+            sub="agent + critic, all on Suiscan"
             index={4}
           />
 
