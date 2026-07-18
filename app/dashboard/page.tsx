@@ -104,6 +104,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<Ev[]>([])
   const [rep, setRep] = useState<{ total: number; avg: number } | null>(null)
   const [swarm, setSwarm] = useState<Swarm | null>(null)
+  const [txCount, setTxCount] = useState<number>(4558)
   const [updated, setUpdated] = useState<Date | null>(null)
   const [tab, setTab] = useState<Tab>("LIVE")
   const [showTour, setShowTour] = useState(false)
@@ -129,17 +130,19 @@ export default function Dashboard() {
     let alive = true
     async function tick() {
       try {
-        const [p, a, rp, sw] = await Promise.all([
+        const [p, a, rp, sw, tx] = await Promise.all([
           fetch("/api/talos/policy", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/activity", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/reputation", { cache: "no-store" }).then((r) => r.json()),
           fetch("/api/talos/swarm", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+          fetch("/api/talos/txcount", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
         ])
         if (!alive) return
         if (!p.error) setPolicy(p)
         setEvents(a.events || [])
         if (!rp.error) setRep(rp)
         if (sw && !sw.error) setSwarm(sw)
+        if (typeof tx?.total === "number") setTxCount(tx.total)
         setUpdated(new Date())
       } catch {
         /* keep last good state */
@@ -243,59 +246,9 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Heartbeat + simplified budget leash — side by side, below */}
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <SwarmHeartbeat swarm={swarm} />
-              </div>
-              <Panel title="BUDGET LEASH">
-                <div className="space-y-5 px-5 py-5">
-                  <div className="flex items-end justify-between">
-                    <div className="font-pixel text-4xl leading-none text-accent">
-                      {pct}
-                      <span className="text-lg text-muted-foreground">%</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-mono text-sm text-foreground">{policy?.remaining_budget ?? "—"}</div>
-                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">of {budgetTotal} left</div>
-                    </div>
-                  </div>
-                  <div className="h-2.5 w-full overflow-hidden border border-border bg-black/30">
-                    <div
-                      className="h-full bg-linear-to-r from-accent/50 to-accent transition-all duration-700"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <div className="-mx-2 h-28">
-                    {budgetSeries.length > 1 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={budgetSeries} margin={{ top: 6, right: 6, bottom: 0, left: 6 }}>
-                          <defs>
-                            <linearGradient id="bud" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={ACCENT} stopOpacity={0.55} />
-                              <stop offset="100%" stopColor={ACCENT} stopOpacity={0.03} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid vertical={false} stroke={GRID} strokeOpacity={0.25} />
-                          <Tooltip content={<ChartTip />} cursor={{ stroke: ACCENT, strokeOpacity: 0.25 }} />
-                          <Area
-                            type="monotone"
-                            dataKey="remaining"
-                            stroke={ACCENT}
-                            strokeWidth={2.5}
-                            fill="url(#bud)"
-                            dot={false}
-                            activeDot={{ r: 3, fill: ACCENT, stroke: "transparent" }}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-center text-[10px] uppercase tracking-widest text-muted-foreground">BUDGET HISTORY APPEARS AS ICARUS REBALANCES</div>
-                    )}
-                  </div>
-                </div>
-              </Panel>
-            </div>
+            {/* Heartbeat — full width, spanning the scene + logs above. Budget leash
+                lives on the POLICY tab, so it's not duplicated here. */}
+            <SwarmHeartbeat swarm={swarm} txCount={txCount} />
           </div>
         )}
 
@@ -487,7 +440,7 @@ export default function Dashboard() {
   )
 }
 
-function SwarmHeartbeat({ swarm }: { swarm: Swarm | null }) {
+function SwarmHeartbeat({ swarm, txCount }: { swarm: Swarm | null; txCount: number }) {
   const live = Boolean(swarm?.active)
   const brain =
     !swarm || !swarm.provider || swarm.provider === "none"
@@ -506,7 +459,7 @@ function SwarmHeartbeat({ swarm }: { swarm: Swarm | null }) {
           {live ? "LIVE" : "IDLE"}
         </span>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 [&>*]:border-b-2 [&>*]:border-border">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 [&>*]:border-b-2 [&>*]:border-border">
         <div className={cell}>
           <div className="font-pixel text-3xl text-accent">{swarm?.cycles ?? "—"}</div>
           <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">CYCLES RUN</div>
@@ -523,9 +476,15 @@ function SwarmHeartbeat({ swarm }: { swarm: Swarm | null }) {
           <div className="font-pixel text-3xl">{lastTick}</div>
           <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">LAST TICK</div>
         </div>
-        <div className="px-5 py-5">
+        <div className={cell}>
           <div className="font-pixel text-3xl">{tick}</div>
           <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">INTERVAL</div>
+        </div>
+        <div className="px-5 py-5">
+          <div className="font-pixel text-3xl" style={{ color: "#e0703a" }}>
+            {txCount.toLocaleString("en-US")}
+          </div>
+          <div className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">ON-CHAIN TX</div>
         </div>
       </div>
     </div>
