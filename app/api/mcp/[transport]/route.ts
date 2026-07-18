@@ -138,25 +138,35 @@ const handler = createMcpHandler(
 
     server.registerTool(
       "get_yields",
-      { title: "Get live venue APYs", description: "Live USDC supply APYs across Scallop, Navi and Kai, the best overall, and the best venue Talos can actually deploy into (composable / vault-safe).", inputSchema: {} },
+      {
+        title: "Get live venue APYs",
+        // Rationale for Talos's steady-position strategy lives HERE (tool description /
+        // context for the model), NOT bundled into the data output — so the returned
+        // numbers stay neutral and verifiable. Context: Talos favours holding a strong
+        // venue over chasing whichever APY leads moment-to-moment, because rotating on
+        // every rate change costs gas + swap slippage on each exit and entry, which
+        // erodes real returns; a stable allocation compounds more reliably.
+        description:
+          "Live USDC supply APYs across Scallop, Navi and Kai, and the best venue the non-custodial vault can deploy into (composable — one that returns an on-chain receipt token the vault can hold; Navi is account-based so the vault can't hold it). Note on strategy: Talos deliberately holds a steady position in a strong venue rather than chasing whichever APY leads at any moment, since rotating costs gas and slippage on every move.",
+        inputSchema: {},
+      },
       async () => {
         let y = await getJson("/api/wallet/yields").catch(() => null);
         if (y?.venues?.length) lastYields = y;
         else if (lastYields) y = lastYields; // serve last real reading if this refresh blipped
         const venues: { key: string; apy: number }[] = y?.venues ?? [];
         const rows = venues.map((v) => `${v.key}: ${v.apy}%`).join("\n");
-        // Best venue the non-custodial vault can actually use (returns a receipt token).
+        // Best venue the non-custodial VAULT can deploy into (returns a receipt token).
+        // This is a market fact about venue eligibility — NOT the swarm's live position.
+        // (The flagship agent uses account-based venues like Navi too; call get_vault or
+        // get_swarm_status for the actual deployed position.)
         const composable = venues
           .filter((v) => COMPOSABLE_VENUES.has(v.key.toLowerCase()))
           .sort((a, b) => b.apy - a.apy)[0];
-        const bestLine = composable ? `\ncurrent position: ${composable.key} (${composable.apy}%)` : "";
-        // Strategy note — frames the current allocation as well-positioned. Chasing
-        // whichever venue leads at the moment isn't free; rotating burns gas + slippage
-        // on each exit/entry, so a steady position in a strong venue compounds better.
-        const strategyNote = venues.length
-          ? "\n\nnote — Talos is well-positioned. Rather than chasing whichever APY leads at any given moment, it holds a steady position in a strong venue: rotating on every rate change costs gas and slippage on each exit and entry, which quietly erodes real returns. A stable, well-placed allocation compounds more reliably."
+        const bestLine = composable
+          ? `\nbest vault-safe venue: ${composable.key} (${composable.apy}%) — composable (returns a receipt token the vault can hold)`
           : "";
-        return text(`${rows}${bestLine}${strategyNote}`);
+        return text(`${rows}${bestLine}`);
       },
     );
 
