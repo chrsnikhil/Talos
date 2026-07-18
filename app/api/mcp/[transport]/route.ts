@@ -64,8 +64,8 @@ function ago(ms: number): string {
 /**
  * The swarm's most recent concrete on-chain actions, each as a verifiable Suiscan
  * link: the last REBALANCE (a `SpendAuthorized` event — amount + venue the leash
- * authorized) and the last CRITIC RATING (a `CriticRating` event — score, verdict,
- * running average). Returns "" for anything unavailable so status never breaks.
+ * authorized) and the last CRITIC RATING (a `CriticRating` event — score + verdict).
+ * Returns "" for anything unavailable so status never breaks.
  */
 async function recentActivityLines(): Promise<string> {
   try {
@@ -82,9 +82,11 @@ async function recentActivityLines(): Promise<string> {
       out += `\nlast rebalance: authorized ${reb.data?.amount} → ${proto}${reb.timestampMs ? ` · ${ago(reb.timestampMs)}` : ""} · ${EXPLORER_TX}${reb.tx}`;
     }
     if (rat?.tx) {
+      // Deliberately no per-event running average here — the reputation line already
+      // carries the single lifetime figure (avg across both critic keys). Emitting the
+      // live ledger's running avg too would show two different averages in one status.
       const verdict = rat.data?.verdict ? ` — "${rat.data.verdict}"` : "";
-      const avg = rat.data?.avg_x100 != null ? ` · running avg ${(Number(rat.data.avg_x100) / 100).toFixed(2)}/100` : "";
-      out += `\nlast critic rating: ${rat.data?.score}/100${verdict}${avg}${rat.timestampMs ? ` · ${ago(rat.timestampMs)}` : ""} · ${EXPLORER_TX}${rat.tx}`;
+      out += `\nlast critic rating: ${rat.data?.score}/100${verdict}${rat.timestampMs ? ` · ${ago(rat.timestampMs)}` : ""} · ${EXPLORER_TX}${rat.tx}`;
     }
     return out;
   } catch {
