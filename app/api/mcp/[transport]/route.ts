@@ -21,11 +21,6 @@ const currentSub = () => subStore.getStore()!;
 const BASE = process.env.MCP_INTERNAL_BASE || "http://127.0.0.1:3000";
 const usd = (x: unknown) => (Number(x ?? 0) / 1e6).toFixed(4);
 
-// Venues whose supply position returns an on-chain receipt token (Scallop sCoin, Kai
-// yUSDC) that the non-custodial vault can hold. Navi is account-based and returns NO
-// receipt token, so vault funds can never be placed there — this is the "Navi note".
-const COMPOSABLE_VENUES = new Set(["scallop", "kai"]);
-
 // Last-known-good responses. The demo talks to live mainnet RPC; if a single refresh
 // blips, we serve the previous REAL reading (seconds stale) instead of an empty/broken
 // message. Module-scoped so it survives across requests in the long-lived next process.
@@ -123,15 +118,26 @@ const handler = createMcpHandler(
 
     server.registerTool(
       "get_swarm_status",
-      { title: "Get swarm status", description: "The Talos agent swarm: active/idle, cycles run, brain (LLM), on-chain reputation, plus its last rebalance and last critic rating — each a verifiable Suiscan link.", inputSchema: {} },
+      { title: "Get swarm status", description: "The Talos agent swarm: active/idle, cycles run, brain (LLM), lifetime on-chain reputation (across both critic keys), plus its last rebalance and last critic rating — each a verifiable Suiscan link.", inputSchema: {} },
       async () => {
-        const [sRaw, actLines] = await Promise.all([getJson("/api/talos/swarm").catch(() => null), recentActivityLines()]);
+        const [sRaw, actLines, rep] = await Promise.all([
+          getJson("/api/talos/swarm").catch(() => null),
+          recentActivityLines(),
+          getJson("/api/talos/reputation").catch(() => null),
+        ]);
         let s = sRaw;
         if (s?.cycles != null) lastSwarm = s;
         else if (lastSwarm) s = lastSwarm; // serve last real reading if this refresh blipped
-        const rep = s?.reputation?.total != null ? `${s.reputation.total} ratings (avg ${s.reputation.avg}/100)` : "n/a";
+        // Lifetime reputation across both critic keys (matches the public figure); fall
+        // back to the live-ledger reading, then to whatever the swarm state carried.
+        const repLine =
+          rep?.lifetimeTotal != null
+            ? `${rep.lifetimeTotal} ratings (avg ${rep.lifetimeAvg}/100, lifetime across both critic keys)`
+            : s?.reputation?.total != null
+              ? `${s.reputation.total} ratings (avg ${s.reputation.avg}/100)`
+              : "n/a";
         return text(
-          `Swarm: ${s?.active ? "ACTIVE" : "idle"} · ${s?.cycles ?? 0} cycles · brain ${s?.provider ?? "?"} ${s?.model ?? ""} · reputation ${rep}${actLines}`,
+          `Swarm: ${s?.active ? "ACTIVE" : "idle"} · ${s?.cycles ?? 0} cycles · brain ${s?.provider ?? "?"} ${s?.model ?? ""} · reputation ${repLine}${actLines}`,
         );
       },
     );
@@ -147,7 +153,7 @@ const handler = createMcpHandler(
         // every rate change costs gas + swap slippage on each exit and entry, which
         // erodes real returns; a stable allocation compounds more reliably.
         description:
-          "Live USDC supply APYs across Scallop, Navi and Kai, and the best venue the non-custodial vault can deploy into (composable — one that returns an on-chain receipt token the vault can hold; Navi is account-based so the vault can't hold it). Note on strategy: Talos deliberately holds a steady position in a strong venue rather than chasing whichever APY leads at any moment, since rotating costs gas and slippage on every move.",
+          "Live USDC supply APYs across Scallop, Navi and Kai, and the best venue overall — where the flagship Talos agent deploys. The agent is account-based, so it can supply to any of these venues (including Navi). Note on strategy: Talos deliberately holds a steady position in a strong venue rather than chasing whichever APY leads at any moment, since rotating costs gas and slippage on every move. For the agent's actual live position, use get_swarm_status.",
         inputSchema: {},
       },
       async () => {
@@ -156,16 +162,11 @@ const handler = createMcpHandler(
         else if (lastYields) y = lastYields; // serve last real reading if this refresh blipped
         const venues: { key: string; apy: number }[] = y?.venues ?? [];
         const rows = venues.map((v) => `${v.key}: ${v.apy}%`).join("\n");
-        // Best venue the non-custodial VAULT can deploy into (returns a receipt token).
-        // This is a market fact about venue eligibility — NOT the swarm's live position.
-        // (The flagship agent uses account-based venues like Navi too; call get_vault or
-        // get_swarm_status for the actual deployed position.)
-        const composable = venues
-          .filter((v) => COMPOSABLE_VENUES.has(v.key.toLowerCase()))
-          .sort((a, b) => b.apy - a.apy)[0];
-        const bestLine = composable
-          ? `\nbest vault-safe venue: ${composable.key} (${composable.apy}%) — composable (returns a receipt token the vault can hold)`
-          : "";
+        // Best venue overall — the flagship agent is account-based and can deploy to ANY
+        // of these (Navi included). This is a market fact; get_swarm_status carries the
+        // agent's actual live position + last rebalance.
+        const best = [...venues].sort((a, b) => b.apy - a.apy)[0];
+        const bestLine = best ? `\nbest venue: ${best.key} (${best.apy}%) — where the agent deploys (account-based, any venue eligible)` : "";
         return text(`${rows}${bestLine}`);
       },
     );
