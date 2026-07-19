@@ -4,7 +4,7 @@
 
 Talos is a swarm of two autonomous AI agents that manage real USDC on **Sui mainnet** under an on-chain policy they physically cannot break, with a second agent independently grading every decision on-chain.
 
-**Live dashboard:** [talosfi.xyz](https://talosfi.xyz) · **Demo:** [youtu.be/taoUTY0VOmM](https://youtu.be/taoUTY0VOmM) · **Track:** Sui Overflow 2026, Agentic Web
+**Live dashboard:** [talosfi.xyz](https://talosfi.xyz) · **Demo:** [https://www.youtube.com/watch?v=qxP1ycMGhtI&t=10s) · **Track:** Sui Overflow 2026, Agentic Web
 
 https://github.com/user-attachments/assets/cb2b2165-88a0-41fd-a0d7-05e645e0e07d
 
